@@ -15,6 +15,7 @@ import { libraryRoute } from "./routes/library";
 import { discussionsRoute } from "./routes/discussions";
 import { challengesRoute } from "./routes/challenges";
 import { meRoute } from "./routes/me";
+import { swipesRoute } from "./routes/swipes";
 
 const supabaseUrl = process.env.SUPABASE_URL ?? "";
 
@@ -102,6 +103,7 @@ export function buildApp(opts?: { testUser?: TestUser }) {
         { name: "me", description: "Authenticated user profile and preferences" },
         { name: "discussions", description: "Discussion threads" },
         { name: "challenges", description: "Reading challenges and leaderboards" },
+        { name: "swipes", description: "Swipe events for feed personalization" },
       ],
     },
   });
@@ -123,6 +125,7 @@ export function buildApp(opts?: { testUser?: TestUser }) {
   app.register(meRoute);
   app.register(discussionsRoute);
   app.register(challengesRoute);
+  app.register(swipesRoute);
 
   return app;
 }

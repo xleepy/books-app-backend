@@ -41,11 +41,14 @@ export async function booksRoute(app: FastifyInstance) {
       if (request.user?.sub) {
         const user = await db.user.findUnique({ where: { authId: request.user.sub } });
         if (user) {
-          const libraryItems = await db.libraryItem.findMany({
-            where: { userId: user.id },
-            select: { bookId: true },
-          });
-          excludedBookIds = libraryItems.map((item) => item.bookId);
+          const [libraryItems, passedSwipes] = await Promise.all([
+            db.libraryItem.findMany({ where: { userId: user.id }, select: { bookId: true } }),
+            db.swipe.findMany({ where: { userId: user.id, direction: "left" }, select: { bookId: true } }),
+          ]);
+          excludedBookIds = [
+            ...libraryItems.map((item) => item.bookId),
+            ...passedSwipes.map((s) => s.bookId),
+          ];
 
           if (libraryItems.length > 0) {
             const librarySubjects = await db.bookSubject.findMany({
