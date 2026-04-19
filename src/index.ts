@@ -13,9 +13,8 @@ app.listen({ port, host }, (err) => {
   }
 });
 
-const shutdown = async () => {
+const shutdown = () => {
   app.server.closeAllConnections();
-  await app.close();
   process.exit(0);
 };
 

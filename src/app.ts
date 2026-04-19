@@ -41,7 +41,7 @@ export function buildApp(opts?: { testUser?: TestUser }) {
 
   app.register(fastifyJwt, {
     verify: { algorithms: ["ES256"] },
-    secret: async (_request: FastifyRequest, decoded: DecodedJwt) => {
+    secret: async (decoded: DecodedJwt) => {
       const kid = decoded?.header?.kid as string | undefined;
       if (kid) {
         return new Promise<string>((resolve, reject) => {
