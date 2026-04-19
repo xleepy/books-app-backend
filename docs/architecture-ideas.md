@@ -1,3 +1,5 @@
+> **Historical research doc** — decisions have been finalized in `implementation-plan.md`. The swipe-signal model described here was superseded: there is no separate swipes endpoint; adding a book to the library is the signal. Neo4j was rejected in favour of PostgreSQL (junction tables + in-memory scoring). See `implementation-plan.md` for current architecture.
+
 ---
 
 ## Research Report: Books App Backend Architecture

@@ -1,44 +1,24 @@
 import type { FastifyInstance } from "fastify";
 
 export async function authRoute(app: FastifyInstance) {
-  app.post("/auth/register", {
+  // Registration and login are handled entirely by Supabase on the client side.
+  // The server only needs a logout endpoint to signal intent (JWTs are stateless;
+  // actual token invalidation happens via Supabase refresh token revocation).
+  app.post("/auth/logout", {
     schema: {
       tags: ["auth"],
-      summary: "Register a new user",
-      body: {
-        type: "object",
-        required: ["email", "password", "name"],
-        properties: {
-          email: { type: "string", format: "email" },
-          password: { type: "string", minLength: 8 },
-          name: { type: "string", minLength: 1 },
-        },
-      },
+      summary: "Log out (client must discard tokens; refresh token revocation handled client-side via Supabase)",
+      security: [{ bearerAuth: [] }],
       response: {
-        201: { $ref: "AuthTokens" },
-        409: { $ref: "ApiError", description: "Email already registered" },
+        200: {
+          type: "object",
+          required: ["ok"],
+          properties: { ok: { type: "boolean" } },
+        },
+        401: { $ref: "ApiError" },
       },
     },
-    handler: async (_req, reply) => reply.notImplemented(),
-  });
-
-  app.post("/auth/login", {
-    schema: {
-      tags: ["auth"],
-      summary: "Log in and receive a JWT",
-      body: {
-        type: "object",
-        required: ["email", "password"],
-        properties: {
-          email: { type: "string", format: "email" },
-          password: { type: "string" },
-        },
-      },
-      response: {
-        200: { $ref: "AuthTokens" },
-        401: { $ref: "ApiError", description: "Invalid credentials" },
-      },
-    },
-    handler: async (_req, reply) => reply.notImplemented(),
+    preHandler: [app.authenticate],
+    handler: async (_req, reply) => reply.send({ ok: true }),
   });
 }

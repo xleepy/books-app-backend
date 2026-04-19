@@ -12,3 +12,12 @@ app.listen({ port, host }, (err) => {
     process.exit(1);
   }
 });
+
+const shutdown = async () => {
+  app.server.closeAllConnections();
+  await app.close();
+  process.exit(0);
+};
+
+process.on("SIGTERM", shutdown);
+process.on("SIGINT", shutdown);
