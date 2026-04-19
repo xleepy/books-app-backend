@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Read(//t/repos/books-app/**)",
-      "Bash(npx tsc *)"
-    ]
-  }
-}
