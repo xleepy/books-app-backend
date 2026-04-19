@@ -31,3 +31,43 @@ jobs:
         run: npx prisma validate
         env:
           DATABASE_URL: postgresql://dummy:dummy@localhost:5432/dummy
+
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: booksapp
+          POSTGRES_PASSWORD: booksapp
+          POSTGRES_DB: booksapp
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npm run db:generate
+        env:
+          DATABASE_URL: postgresql://booksapp:booksapp@localhost:5432/booksapp
+
+      - name: Run integration tests
+        run: npm test
+        env:
+          DATABASE_URL: postgresql://booksapp:booksapp@localhost:5432/booksapp
