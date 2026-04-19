@@ -1,0 +1,327 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Books ────────────────────────────────────────────────────────────────────
+
+model Book {
+  id               String   @id @default(uuid())
+  openLibraryId    String   @unique @map("open_library_id")
+  title            String
+  author           String
+  description      String?
+  coverUrl         String?  @map("cover_url")
+  pageCount        Int?     @map("page_count")
+  firstPublishYear Int?     @map("first_publish_year")
+  ratingAvg        Decimal? @map("rating_avg") @db.Decimal(3, 2)
+  ratingCount      Int?     @map("rating_count")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  bookAuthors      BookAuthor[]
+  bookSubjects     BookSubject[]
+  libraryItems     LibraryItem[]
+  reviews          Review[]
+  swipes           Swipe[]
+  threads          Thread[]
+  recommendationCaches RecommendationCache[]
+
+  @@map("books")
+}
+
+model Author {
+  id            String  @id @default(uuid())
+  openLibraryId String  @unique @map("open_library_id")
+  name          String
+
+  bookAuthors   BookAuthor[]
+
+  @@map("authors")
+}
+
+model BookAuthor {
+  bookId   String @map("book_id")
+  authorId String @map("author_id")
+
+  book   Book   @relation(fields: [bookId], references: [id])
+  author Author @relation(fields: [authorId], references: [id])
+
+  @@id([bookId, authorId])
+  @@map("book_authors")
+}
+
+model Subject {
+  id   String @id @default(uuid())
+  name String @unique
+  slug String @unique
+
+  bookSubjects  BookSubject[]
+  edgesFrom     SubjectEdge[] @relation("EdgeFrom")
+  edgesTo       SubjectEdge[] @relation("EdgeTo")
+
+  @@map("subjects")
+}
+
+model BookSubject {
+  bookId    String  @map("book_id")
+  subjectId String  @map("subject_id")
+  weight    Decimal @default(1.0) @db.Decimal(5, 2)
+
+  book    Book    @relation(fields: [bookId], references: [id])
+  subject Subject @relation(fields: [subjectId], references: [id])
+
+  @@id([bookId, subjectId])
+  @@index([subjectId])
+  @@map("book_subjects")
+}
+
+model SubjectEdge {
+  fromId String  @map("from_id")
+  toId   String  @map("to_id")
+  weight Decimal @db.Decimal(5, 2)
+
+  from Subject @relation("EdgeFrom", fields: [fromId], references: [id])
+  to   Subject @relation("EdgeTo", fields: [toId], references: [id])
+
+  @@id([fromId, toId])
+  @@index([fromId])
+  @@map("subject_edges")
+}
+
+// ─── Users ────────────────────────────────────────────────────────────────────
+
+model User {
+  id            String   @id @default(uuid())
+  authId        String   @unique @map("auth_id")
+  email         String
+  name          String
+  avatarHue     Int      @default(0) @map("avatar_hue")
+  readingGoal   Int      @default(30) @map("reading_goal")
+  xpTotal       Int      @default(0) @map("xp_total")
+  level         Int      @default(1)
+  levelTitle    String   @default("Newcomer") @map("level_title")
+  streak        Int      @default(0)
+  bestStreak    Int      @default(0) @map("best_streak")
+  streakLastDate DateTime? @map("streak_last_date") @db.Date
+  weekDays      Boolean[] @default([false, false, false, false, false, false, false]) @map("week_days")
+  pagesRead     Int      @default(0) @map("pages_read")
+  booksFinished Int      @default(0) @map("books_finished")
+  hoursRead     Decimal  @default(0) @map("hours_read") @db.Decimal(8, 2)
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  preferences          UserPreferences?
+  swipes               Swipe[]
+  libraryItems         LibraryItem[]
+  reviews              Review[]
+  xpEvents             XpEvent[]
+  userBadges           UserBadge[]
+  userChallenges       UserChallenge[]
+  threads              Thread[]
+  threadReplies        ThreadReply[]
+  threadLikes          ThreadLike[]
+  recommendationCaches RecommendationCache[]
+
+  @@map("users")
+}
+
+model UserPreferences {
+  userId              String    @id @map("user_id")
+  readingGoalMinutes  Int       @default(30) @map("reading_goal_minutes")
+  reminderTime        String?   @map("reminder_time")
+  reminderEnabled     Boolean   @default(false) @map("reminder_enabled")
+  preferredGenres     String[]  @default([]) @map("preferred_genres")
+  notifyPush          Boolean   @default(true) @map("notify_push")
+  notifyWeeklyDigest  Boolean   @default(true) @map("notify_weekly_digest")
+  notifyChallenge     Boolean   @default(true) @map("notify_challenge")
+  profileVisibility   String    @default("public") @map("profile_visibility")
+  onboardedAt         DateTime? @map("onboarded_at")
+  updatedAt           DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("user_preferences")
+}
+
+model Swipe {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  bookId    String   @map("book_id")
+  direction String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+  book Book @relation(fields: [bookId], references: [id])
+
+  @@unique([userId, bookId])
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("swipes")
+}
+
+model LibraryItem {
+  userId      String    @map("user_id")
+  bookId      String    @map("book_id")
+  status      String
+  isCurrent   Boolean   @default(false) @map("is_current")
+  progressPct Decimal   @default(0) @map("progress_pct") @db.Decimal(5, 2)
+  timeLeftMin Int?      @map("time_left_min")
+  addedAt     DateTime  @default(now()) @map("added_at")
+  finishedAt  DateTime? @map("finished_at")
+
+  user User @relation(fields: [userId], references: [id])
+  book Book @relation(fields: [bookId], references: [id])
+
+  @@id([userId, bookId])
+  @@map("library_items")
+}
+
+model Review {
+  id        String   @id @default(uuid())
+  bookId    String   @map("book_id")
+  userId    String   @map("user_id")
+  rating    Int
+  text      String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  book Book @relation(fields: [bookId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("reviews")
+}
+
+// ─── Gamification ─────────────────────────────────────────────────────────────
+
+model XpEvent {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  source    String
+  xp        Int
+  meta      Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("xp_events")
+}
+
+model Badge {
+  id          String   @id @default(uuid())
+  slug        String   @unique
+  name        String
+  description String?
+  iconUrl     String?  @map("icon_url")
+
+  userBadges  UserBadge[]
+  challenges  Challenge[]
+
+  @@map("badges")
+}
+
+model UserBadge {
+  userId    String   @map("user_id")
+  badgeId   String   @map("badge_id")
+  awardedAt DateTime @default(now()) @map("awarded_at")
+
+  user  User  @relation(fields: [userId], references: [id])
+  badge Badge @relation(fields: [badgeId], references: [id])
+
+  @@id([userId, badgeId])
+  @@map("user_badges")
+}
+
+model Challenge {
+  id         String    @id @default(uuid())
+  slug       String    @unique
+  title      String
+  subtitle   String?
+  goal       String?
+  variant    String
+  target     Int
+  badgeId    String?   @map("badge_id")
+  activeFrom DateTime? @map("active_from") @db.Date
+  activeTo   DateTime? @map("active_to") @db.Date
+
+  badge          Badge?          @relation(fields: [badgeId], references: [id])
+  userChallenges UserChallenge[]
+
+  @@map("challenges")
+}
+
+model UserChallenge {
+  userId      String    @map("user_id")
+  challengeId String    @map("challenge_id")
+  current     Int       @default(0)
+  completedAt DateTime? @map("completed_at")
+
+  user      User      @relation(fields: [userId], references: [id])
+  challenge Challenge @relation(fields: [challengeId], references: [id])
+
+  @@id([userId, challengeId])
+  @@map("user_challenges")
+}
+
+// ─── Community ────────────────────────────────────────────────────────────────
+
+model Thread {
+  id        String   @id @default(uuid())
+  creatorId String   @map("creator_id")
+  bookId    String?  @map("book_id")
+  title     String
+  preview   String?
+  body      String?
+  spoiler   Boolean  @default(false)
+  likes     Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  creator User          @relation(fields: [creatorId], references: [id])
+  book    Book?         @relation(fields: [bookId], references: [id])
+  replies ThreadReply[]
+  threadLikes ThreadLike[]
+
+  @@map("threads")
+}
+
+model ThreadReply {
+  id        String   @id @default(uuid())
+  threadId  String   @map("thread_id")
+  userId    String   @map("user_id")
+  body      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  thread Thread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@index([threadId, createdAt])
+  @@map("thread_replies")
+}
+
+model ThreadLike {
+  userId   String @map("user_id")
+  threadId String @map("thread_id")
+
+  user   User   @relation(fields: [userId], references: [id])
+  thread Thread @relation(fields: [threadId], references: [id])
+
+  @@id([userId, threadId])
+  @@map("thread_likes")
+}
+
+// ─── Recommendation cache ─────────────────────────────────────────────────────
+
+model RecommendationCache {
+  userId     String   @map("user_id")
+  bookId     String   @map("book_id")
+  score      Decimal  @db.Decimal(8, 4)
+  reason     Json?
+  computedAt DateTime @default(now()) @map("computed_at")
+
+  user User @relation(fields: [userId], references: [id])
+  book Book @relation(fields: [bookId], references: [id])
+
+  @@id([userId, bookId])
+  @@map("recommendation_cache")
+}

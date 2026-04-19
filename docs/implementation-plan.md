@@ -1,11 +1,11 @@
 # Implementation Plan — Books App Backend
 
-**Status:** DRAFT — decisions below are tentative; open questions are marked `[DECIDE]`.
+**Status:** IN PROGRESS — all open questions decided; Phase 0 scaffolding complete (2026-04-19).
 **Supersedes:** `architecture-ideas.md` (research) + `review.md` (critique) once accepted.
 
 ---
 
-## 1. Decisions (tentative)
+## 1. Decisions ✅ confirmed
 
 | Area | Choice | Rationale |
 | --- | --- | --- |
@@ -212,14 +212,20 @@ All mutating routes require `Authorization: Bearer <jwt>`. Feed endpoint is the 
 
 ## 5. Phased Milestones
 
-### Phase 0 — Foundation (1–2 days)
+### Phase 0 — Foundation ✅ scaffolded / ⏳ deploy pending (1–2 days)
 
-- Scaffold Fastify + TS + Prisma
-- Postgres provisioned on VPS, `.env` wiring, `/healthz`
-- CI: lint + typecheck + `prisma migrate diff`
-- **Exit criteria:** `curl /healthz` returns 200 from deployed env
+> Completed 2026-04-19: project scaffolded locally. Remaining: provision VPS Postgres, set `DATABASE_URL` in `.env`, run `prisma migrate dev`, deploy, verify `/healthz`.
 
-### Phase 1 — Seeding pipeline (2–3 days)
+- ✅ Scaffold Fastify + TS + Prisma (`src/`, `prisma/schema.prisma`, `tsconfig.json`, `package.json`)
+- ✅ Full DB schema in `prisma/schema.prisma` — all models from §3, validated (`prisma validate` passes)
+- ✅ `GET /healthz` route implemented (`src/routes/health.ts`)
+- ✅ `.env.example` wiring documented
+- ✅ CI: lint + typecheck + `prisma validate` (`.github/workflows/ci.yml`)
+- ⏳ Postgres provisioned on VPS
+- ⏳ `prisma migrate dev` — initial migration generated and applied
+- ⏳ **Exit criteria:** `curl /healthz` returns 200 from deployed env
+
+### Phase 1 — Seeding pipeline ⏳ not started (2–3 days)
 
 - `scripts/seed/fetch-subjects.ts` — pulls ~50 curated subjects, stores in `subjects` + `subject_edges`
 - `scripts/seed/fetch-books.ts` — for each subject, top 100 books; dedupe by `open_library_id`
@@ -228,7 +234,7 @@ All mutating routes require `Authorization: Bearer <jwt>`. Feed endpoint is the 
 - Idempotent: re-running updates rows, never duplicates
 - **Exit criteria:** ~3–5K books in DB with subjects + relationships
 
-### Phase 2 — Read-only API + auth (2–3 days)
+### Phase 2 — Read-only API + auth ⏳ not started (2–3 days)
 
 - Supabase Auth wired; JWT middleware verifies tokens server-side (JWKS from Supabase project)
 - **Auth providers configured:**
@@ -242,7 +248,7 @@ All mutating routes require `Authorization: Bearer <jwt>`. Feed endpoint is the 
 - Frontend swaps `mockBooks` for `useGetFeedQuery()`; library slice becomes a thin cache over `/v1/library`; `userSlice.currentBook` collapses into `library_items.is_current`
 - **Exit criteria:** sign in with Google on a real device, app runs end-to-end against deployed backend, Settings screen persists to server, zero personalization
 
-### Phase 3 — Swipe ingestion + cold-start recs (3–4 days)
+### Phase 3 — Swipe ingestion + cold-start recs ⏳ not started (3–4 days)
 
 - `POST /v1/swipes`, `POST /v1/library`, `POST /v1/reviews`
 - Cold-start feed: **popular-in-subject + diversity** (shuffle across top-N subjects)
@@ -250,13 +256,13 @@ All mutating routes require `Authorization: Bearer <jwt>`. Feed endpoint is the 
 - Feed endpoint returns blended results once user has ≥5 right-swipes
 - **Exit criteria:** feed measurably improves after swiping (manual eval)
 
-### Phase 4 — Collaborative signal (later)
+### Phase 4 — Collaborative signal ⏳ not started (later)
 
 - Nightly job computes book-to-book co-liked matrix (just a materialized view for 5K books)
 - Blend into feed scoring (the weighted formula from research doc §4)
 - **Exit criteria:** offline precision@10 on held-out swipes beats Phase 3
 
-### Phase 5 — Gamification
+### Phase 5 — Gamification ⏳ not started
 
 - XP event pipeline: award XP on `library_items` status → `finished`, review posted, streak milestone
 - Level computation: derive `level` + `level_title` from `xp_total` on each XP event
@@ -266,7 +272,7 @@ All mutating routes require `Authorization: Bearer <jwt>`. Feed endpoint is the 
 - Award badges on milestone events (first book, 7-day streak, challenge completed, etc.)
 - **Exit criteria:** Progress screen and Challenges tab fully driven by backend; no mock data
 
-### Phase 6 — Community (threads)
+### Phase 6 — Community (threads) ⏳ not started
 
 - Tables (`threads`, `thread_replies`, `thread_likes`) already migrated in Phase 0; endpoints activated here
 - `GET /v1/threads` with `filter` (all/popular/recent/mine) + `search` + cursor
@@ -275,7 +281,7 @@ All mutating routes require `Authorization: Bearer <jwt>`. Feed endpoint is the 
 - Moderation: basic rate limit on thread/reply creation, soft-delete column
 - **Exit criteria:** create a thread + reply on a real device, filters work, likes persist
 
-### Phase 7 — Nice-to-haves
+### Phase 7 — Nice-to-haves ⏳ not started
 
 - Embedding pipeline **only if** content+collab plateaus
 
@@ -285,11 +291,11 @@ All mutating routes require `Authorization: Bearer <jwt>`. Feed endpoint is the 
 
 First-time user has zero signal. The feed endpoint falls back through these tiers:
 
-1. **Profile-based** — if onboarding collected preferred subjects, seed feed from those
+1. **Settings-based** — if the user has set preferred genres in Settings, seed feed from those subjects; otherwise skip to tier 2
 2. **Global popular** — top-rated books across curated subjects, diversity-sampled
 3. **Exploration** — 20% of feed always samples outside known preferences (prevents filter bubble from day one)
 
-Once `swipes.count(user) >= 5`, transition to personalized scoring.
+Once `swipes.count(user) >= 5` right-swipes, transition to swipe-inferred personalization: score by subject overlap with liked books, penalize already-seen. Settings genres are blended in as a soft prior but no longer drive the feed alone.
 
 ---
 
@@ -307,15 +313,15 @@ Each step ships independently behind the same API surface.
 
 ---
 
-## 8. Open Questions (need your input)
+## 8. Open Questions ✅ all decided
 
-- `[DECIDE]` **Apple Sign-In**: required by App Store guideline 4.8 if you ship to iOS with Google as a third-party sign-in option. Add at v1 or accept iOS submission risk?
-- `[DECIDE]` **Frontend type changes**: are you OK adding `bookId`/`userId` to `Review`, and swapping local-asset `cover` keys for `coverUrl` on seeded books?
-- `[DECIDE]` **Scope of v1**: Challenges + Leaderboard are Phase 5; Threads are Phase 6. They're visible in the UI today — is that acceptable?
-- `[DECIDE]` **Seed size**: 3K or 5K books? Affects seeding time (~45 vs ~90 min) but not much else.
-- `[DECIDE]` **Profile visibility semantics**: `public` / `friends` / `private` — but we have no friends graph. Ship with just `public`/`private` for v1?
-- `[DECIDE]` **Onboarding preferences**: Settings screen lists "Preferred Genres" but there's no onboarding flow yet. Ship Settings as the only entry point, or add an onboarding step in Phase 2?
-- `[DECIDE]` **Reading reminders**: server-side push (needs APNs/FCM — currently out of scope per §9) or client-local notifications? Latter ships faster.
+- `[DECIDED]` **Apple Sign-In**: Add at v1 to satisfy App Store guideline 4.8.
+- `[DECIDED]` **Frontend type changes**: Approved — add `bookId`/`userId` to `Review`, swap local-asset `cover` for `coverUrl` on `Book`.
+- `[DECIDED]` **Scope of v1**: Challenges, Leaderboard, and Threads remain visible but non-functional at v1. Feature flags on the frontend are a future option to gate them if needed.
+- `[DECIDED]` **Seed size**: 3K books for the PoC (~45 min seeding time).
+- `[DECIDED]` **Profile visibility semantics**: Ship `public`/`private` only; `friends` deferred until a social graph exists.
+- `[DECIDED]` **Onboarding preferences**: Settings screen is the only entry point for Preferred Genres at v1; onboarding flow deferred.
+- `[DECIDED]` **Reading reminders**: Server-side push via APNs/FCM. Move APNs/FCM integration out of §9 Out of Scope — plan a notification worker as part of a future phase.
 
 ---
 
@@ -325,7 +331,8 @@ Each step ships independently behind the same API surface.
 - Neo4j (rejected per review.md)
 - Redis caching (premature at this scale)
 - Image hosting for user avatars (using `avatarHue` numeric keeps this simple)
-- Push notifications, email
+- Email notifications
+- APNs/FCM push notifications (decided: will be implemented in a future phase for reading reminders — not v1)
 
 ---
 
