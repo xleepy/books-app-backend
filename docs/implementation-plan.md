@@ -1,6 +1,7 @@
 # Implementation Plan — Books App Backend
 
-**Status:** IN PROGRESS — all open questions decided; Phase 0 scaffolding complete (2026-04-19).
+**Status:** IN PROGRESS — Phases 0–3 complete. Phases 4–7 not started. One credential blocker before auth works end-to-end.
+**Last updated:** 2026-04-19
 **Supersedes:** `architecture-ideas.md` (research) + `review.md` (critique) once accepted.
 
 ---
@@ -262,22 +263,22 @@ All mutating routes require `Authorization: Bearer <jwt>`. Feed endpoint is the 
 - ✅ `src/store/api/libraryApi.generated.ts` — added `usePatchLibraryByBookIdMutation`, `status` filter on `useGetLibraryQuery`
 
 **⏳ Remaining (manual config — requires Supabase project):**
-1. Create Supabase project → copy **JWT Secret** → set `SUPABASE_JWT_SECRET` in backend `.env`
-2. Copy **Project URL** + **anon key** → set in frontend `.env`
+1. Create Supabase project → copy **Project URL** → set `SUPABASE_URL` in backend `.env` (used to fetch JWKS; backend uses JWKS not static JWT secret)
+2. Copy **Project URL** + **anon key** → set `EXPO_PUBLIC_SUPABASE_URL` + `EXPO_PUBLIC_SUPABASE_ANON_KEY` in frontend `.env`
 3. Enable **Email/Password** provider in Supabase dashboard (Auth → Providers)
 4. For Google OAuth: create Google Cloud OAuth client → add client ID/secret in Supabase → register `booksapp://` as redirect URL
 - **Exit criteria:** sign in with email on a real device, feed loads from real DB, Settings sign-out works
 
 ### Phase 3 — Personalized feed ✅ complete (2026-04-19)
 
-Swipes endpoint was removed entirely. Adding a book to the library **is** the signal — no separate swipe tracking needed.
+Decision update: a separate `POST /swipes` endpoint **was kept** to record pass/like signals independently of library adds (frontend swipe-left never calls `POST /library`).
 
-- ✅ `POST /library` is the single write path for all user-book interactions (like, bookmark, explicit save)
-- ✅ `GET /books/feed` personalization: collects subject IDs from all user's library books, builds a frequency map, scores all unseen candidates by subject overlap, sorts by score → ratingCount → ratingAvg
+- ✅ `POST /swipes` — records `left`/`right` swipe per user+book; upserts on re-swipe
+- ✅ `GET /books/feed` personalization: collects subject IDs from all user's library books, builds a frequency map, scores candidates by subject overlap, sorts by score → ratingCount → ratingAvg
 - ✅ Cold-start fallback: zero library books → popularity sort (ratingCount DESC, ratingAvg DESC)
-- ✅ Feed exclusion: books already in library never appear in the discovery feed
-- ✅ `src/store/api/swipesApi.generated.ts` deleted; `src/mocks/handlers.ts` swipe handler removed
-- **Exit criteria met:** adding 3 sci-fi books to library measurably surfaces overlapping-subject books at the top of the feed (verified via SQL scoring query, 2026-04-19)
+- ✅ Feed exclusion: books already in library **and** left-swiped books are excluded; right-swiped books remain in feed
+- ✅ `tests/swipes.test.ts` — comprehensive Vitest suite covering `POST /swipes` and feed exclusion/personalization (file is untracked in git)
+- **Exit criteria met:** left-swiped books are excluded from feed; subject-overlap personalization verified via integration tests (2026-04-19)
 
 ### Phase 4 — Collaborative signal ⏳ not started (later)
 

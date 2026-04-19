@@ -296,3 +296,63 @@ describe("GET /books/feed — swipes + library combined exclusions", () => {
     expect(ids).toContain(bookAId);
   });
 });
+
+describe("GET /books/feed — subject scoring uses only library subjects, not swipe subjects", () => {
+  // Two disjoint subjects: X lives on the left-swiped book; Y lives on the library book.
+  // candidateX (subjectX-only, high ratingCount) should NOT be boosted after the fix because
+  // left-swiped books must not contribute to the subject frequency map.
+  // candidateY (subjectY-only, low ratingCount) SHOULD be boosted by the library book's subject
+  // and therefore appear first despite a lower ratingCount.
+  let subjectXId: string;
+  let subjectYId: string;
+  let srcLeftId: string;    // left-swiped source — has subjectX
+  let srcLibId: string;     // library source   — has subjectY (activates personalisation)
+  let candidateXId: string; // shares subjectX with the left-swiped book
+  let candidateYId: string; // shares subjectY with the library book
+
+  beforeAll(async () => {
+    const [subjectX, subjectY] = await Promise.all([
+      db.subject.create({ data: { name: "Scoring Subject X", slug: "scoring-subject-x" } }),
+      db.subject.create({ data: { name: "Scoring Subject Y", slug: "scoring-subject-y" } }),
+    ]);
+    subjectXId = subjectX.id;
+    subjectYId = subjectY.id;
+
+    const [srcLeft, srcLib, candidateX, candidateY] = await Promise.all([
+      db.book.create({ data: { openLibraryId: "OL_SCORE_SRC_LEFT", title: "Score: Src Left", author: "A", ratingCount: 50, bookSubjects: { create: [{ subjectId: subjectXId }] } } }),
+      db.book.create({ data: { openLibraryId: "OL_SCORE_SRC_LIB",  title: "Score: Src Lib",  author: "A", ratingCount: 10, bookSubjects: { create: [{ subjectId: subjectYId }] } } }),
+      db.book.create({ data: { openLibraryId: "OL_SCORE_CAND_X",   title: "Score: Candidate X", author: "A", ratingCount: 50, bookSubjects: { create: [{ subjectId: subjectXId }] } } }),
+      db.book.create({ data: { openLibraryId: "OL_SCORE_CAND_Y",   title: "Score: Candidate Y", author: "A", ratingCount: 5,  bookSubjects: { create: [{ subjectId: subjectYId }] } } }),
+    ]);
+    srcLeftId    = srcLeft.id;
+    srcLibId     = srcLib.id;
+    candidateXId = candidateX.id;
+    candidateYId = candidateY.id;
+  });
+
+  afterAll(async () => {
+    const ids = [srcLeftId, srcLibId, candidateXId, candidateYId];
+    await db.bookSubject.deleteMany({ where: { bookId: { in: ids } } });
+    await db.book.deleteMany({ where: { id: { in: ids } } });
+    await db.subject.deleteMany({ where: { id: { in: [subjectXId, subjectYId] } } });
+  });
+
+  test("left-swiped book subjects do not boost candidates — only library book subjects score", async () => {
+    // Add library book (subjectY) to activate personalised path
+    await app.inject({ method: "POST", url: "/library", payload: { bookId: srcLibId, status: "want" } });
+    // Left-swipe the subjectX book — its subject must NOT feed into scoring
+    await app.inject({ method: "POST", url: "/swipes", payload: { bookId: srcLeftId, direction: "left" } });
+
+    const res = await app.inject({ method: "GET", url: "/books/feed" });
+    const ids: string[] = res.json().data.map((b: { id: string }) => b.id);
+
+    const idxX = ids.indexOf(candidateXId);
+    const idxY = ids.indexOf(candidateYId);
+
+    // candidateY (ratingCount=5, subjectY score=1) must rank above
+    // candidateX (ratingCount=50, subjectX score=0) — proving left-swipe subjects don't score
+    expect(idxY).toBeGreaterThan(-1);
+    expect(idxX).toBeGreaterThan(-1);
+    expect(idxY).toBeLessThan(idxX);
+  });
+});
