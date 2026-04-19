@@ -16,5 +16,19 @@ services:
       timeout: 5s
       retries: 5
 
+  app:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://booksapp:booksapp@postgres:5432/booksapp?schema=public
+      SUPABASE_JWT_SECRET: ${SUPABASE_JWT_SECRET}
+      PORT: 3000
+      HOST: 0.0.0.0
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 volumes:
   postgres_data:

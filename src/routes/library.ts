@@ -1,6 +1,19 @@
 import type { FastifyInstance } from "fastify";
 
 export async function libraryRoute(app: FastifyInstance) {
+  app.get("/library/stats", {
+    schema: {
+      tags: ["library"],
+      summary: "Get counts of the authenticated user's books by reading status",
+      security: [{ bearerAuth: [] }],
+      response: {
+        200: { $ref: "LibraryStats" },
+        401: { $ref: "ApiError" },
+      },
+    },
+    handler: async (_req, reply) => reply.notImplemented(),
+  });
+
   app.get("/library", {
     schema: {
       tags: ["library"],
@@ -18,7 +31,7 @@ export async function libraryRoute(app: FastifyInstance) {
           type: "object",
           required: ["data", "pagination"],
           properties: {
-            data: { type: "array", items: { $ref: "Book" } },
+            data: { type: "array", items: { $ref: "LibraryBook" } },
             pagination: { $ref: "Pagination" },
           },
         },

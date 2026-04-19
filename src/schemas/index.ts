@@ -79,6 +79,37 @@ export const LeaderboardEntrySchema = {
   },
 } as const;
 
+export const LibraryBookSchema = {
+  $id: "LibraryBook",
+  type: "object",
+  required: ["id", "title", "author", "tags", "description", "rating", "reviewCount", "status", "progressPct", "isCurrent"],
+  properties: {
+    id: { type: "string" },
+    title: { type: "string" },
+    author: { type: "string" },
+    coverUrl: { type: "string", format: "uri", nullable: true },
+    tags: { type: "array", items: { type: "string" } },
+    description: { type: "string" },
+    rating: { type: "number", minimum: 0, maximum: 5 },
+    reviewCount: { type: "integer" },
+    status: { type: "string", enum: ["saved", "reading", "finished"] },
+    isCurrent: { type: "boolean" },
+    progressPct: { type: "number", minimum: 0, maximum: 100 },
+    timeLeftMin: { type: "integer", nullable: true },
+  },
+} as const;
+
+export const LibraryStatsSchema = {
+  $id: "LibraryStats",
+  type: "object",
+  required: ["finished", "reading", "saved"],
+  properties: {
+    finished: { type: "integer" },
+    reading: { type: "integer" },
+    saved: { type: "integer" },
+  },
+} as const;
+
 export const PaginationSchema = {
   $id: "Pagination",
   type: "object",
@@ -111,6 +142,8 @@ export const AuthTokensSchema = {
 
 export const allSchemas = [
   BookSchema,
+  LibraryBookSchema,
+  LibraryStatsSchema,
   ReviewSchema,
   ThreadSchema,
   ChallengeSchema,
