@@ -1,0 +1,121 @@
+export const BookSchema = {
+  $id: "Book",
+  type: "object",
+  required: ["id", "title", "author", "tags", "description", "rating", "reviewCount"],
+  properties: {
+    id: { type: "string" },
+    title: { type: "string" },
+    author: { type: "string" },
+    coverUrl: { type: "string", format: "uri", nullable: true },
+    tags: { type: "array", items: { type: "string" } },
+    description: { type: "string" },
+    rating: { type: "number", minimum: 0, maximum: 5 },
+    reviewCount: { type: "integer" },
+  },
+} as const;
+
+export const ReviewSchema = {
+  $id: "Review",
+  type: "object",
+  required: ["id", "reviewer", "date", "rating", "text", "avatarHue"],
+  properties: {
+    id: { type: "string" },
+    reviewer: { type: "string" },
+    date: { type: "string", format: "date" },
+    rating: { type: "number", minimum: 0, maximum: 5 },
+    text: { type: "string" },
+    avatarHue: { type: "integer", minimum: 0, maximum: 360 },
+  },
+} as const;
+
+export const ThreadSchema = {
+  $id: "Thread",
+  type: "object",
+  required: ["id", "title", "bookContext", "preview", "coverUrl", "replies", "likes", "timeAgo"],
+  properties: {
+    id: { type: "string" },
+    title: { type: "string" },
+    bookContext: { type: "string" },
+    preview: { type: "string" },
+    coverUrl: { type: "string", format: "uri" },
+    replies: { type: "integer" },
+    likes: { type: "integer" },
+    timeAgo: { type: "string" },
+    spoiler: { type: "boolean" },
+    liked: { type: "boolean" },
+  },
+} as const;
+
+export const ChallengeSchema = {
+  $id: "Challenge",
+  type: "object",
+  required: ["id", "title", "subtitle", "goal", "current", "target", "badgeText", "variant"],
+  properties: {
+    id: { type: "string" },
+    title: { type: "string" },
+    subtitle: { type: "string" },
+    goal: { type: "string" },
+    current: { type: "integer" },
+    target: { type: "integer" },
+    badgeText: { type: "string" },
+    variant: { type: "string", enum: ["monthly", "yearly"] },
+  },
+} as const;
+
+export const LeaderboardEntrySchema = {
+  $id: "LeaderboardEntry",
+  type: "object",
+  required: ["id", "rank", "name", "level", "levelTitle", "books", "xp", "avatarHue"],
+  properties: {
+    id: { type: "string" },
+    rank: { type: "integer" },
+    name: { type: "string" },
+    level: { type: "integer" },
+    levelTitle: { type: "string" },
+    books: { type: "integer" },
+    xp: { type: "integer" },
+    isYou: { type: "boolean" },
+    avatarHue: { type: "integer", minimum: 0, maximum: 360 },
+  },
+} as const;
+
+export const PaginationSchema = {
+  $id: "Pagination",
+  type: "object",
+  required: ["total", "page", "limit"],
+  properties: {
+    total: { type: "integer" },
+    page: { type: "integer" },
+    limit: { type: "integer" },
+  },
+} as const;
+
+export const ErrorSchema = {
+  $id: "ApiError",
+  type: "object",
+  required: ["error", "message"],
+  properties: {
+    error: { type: "string" },
+    message: { type: "string" },
+  },
+} as const;
+
+export const AuthTokensSchema = {
+  $id: "AuthTokens",
+  type: "object",
+  required: ["accessToken"],
+  properties: {
+    accessToken: { type: "string" },
+  },
+} as const;
+
+export const allSchemas = [
+  BookSchema,
+  ReviewSchema,
+  ThreadSchema,
+  ChallengeSchema,
+  LeaderboardEntrySchema,
+  PaginationSchema,
+  ErrorSchema,
+  AuthTokensSchema,
+];
