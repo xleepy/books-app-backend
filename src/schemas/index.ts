@@ -144,7 +144,9 @@ export const PreferencesSchema = {
     notifyPush: { type: "boolean" },
     notifyWeeklyDigest: { type: "boolean" },
     notifyChallenge: { type: "boolean" },
-    profileVisibility: { type: "string", enum: ["public", "private"] },
+    // "friends" is accepted by the API but privacy filtering is not yet implemented;
+    // it is treated the same as "public" until enforcement logic is added.
+    profileVisibility: { type: "string", enum: ["public", "friends", "private"] },
   },
 } as const;
 

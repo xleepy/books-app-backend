@@ -161,10 +161,16 @@ model Swipe {
   @@map("swipes")
 }
 
+enum LibraryItemStatus {
+  want
+  reading
+  finished
+}
+
 model LibraryItem {
-  userId      String    @map("user_id")
-  bookId      String    @map("book_id")
-  status      String
+  userId      String            @map("user_id")
+  bookId      String            @map("book_id")
+  status      LibraryItemStatus
   isCurrent   Boolean   @default(false) @map("is_current")
   progressPct Decimal   @default(0) @map("progress_pct") @db.Decimal(5, 2)
   timeLeftMin Int?      @map("time_left_min")
@@ -175,6 +181,7 @@ model LibraryItem {
   book Book @relation(fields: [bookId], references: [id])
 
   @@id([userId, bookId])
+  @@index([userId])
   @@map("library_items")
 }
 

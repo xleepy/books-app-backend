@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { db } from "../lib/db";
 import { toReview } from "../lib/mappers";
 import { getOrCreateUser } from "../lib/getOrCreateUser";
+import { sanitizeHtml } from "../lib/sanitize";
 
 export async function reviewsRoute(app: FastifyInstance) {
   app.get("/books/:id/reviews", {
@@ -72,7 +73,7 @@ export async function reviewsRoute(app: FastifyInstance) {
         required: ["rating", "text"],
         properties: {
           rating: { type: "integer", minimum: 1, maximum: 5 },
-          text: { type: "string", minLength: 1 },
+          text: { type: "string", minLength: 1, maxLength: 5000 },
         },
       },
       response: {
@@ -96,8 +97,10 @@ export async function reviewsRoute(app: FastifyInstance) {
       const existing = await db.review.findFirst({ where: { bookId, userId: user.id } });
       if (existing) return reply.conflict("You have already reviewed this book");
 
+      const sanitizedText = sanitizeHtml(text);
+
       const review = await db.review.create({
-        data: { bookId, userId: user.id, rating, text },
+        data: { bookId, userId: user.id, rating, text: sanitizedText },
         include: { user: true },
       });
 

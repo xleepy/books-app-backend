@@ -4,6 +4,8 @@ import sensible from "@fastify/sensible";
 import fastifyJwt from "@fastify/jwt";
 import swagger from "@fastify/swagger";
 import swaggerUi from "@fastify/swagger-ui";
+import rateLimit from "@fastify/rate-limit";
+import helmet from "@fastify/helmet";
 import JwksRsa from "jwks-rsa";
 import type { DecodedJwt } from "fast-jwt";
 import { allSchemas } from "./schemas";
@@ -37,8 +39,13 @@ export type TestUser = {
 export function buildApp(opts?: { testUser?: TestUser }) {
   const app = Fastify({ logger: !process.env.VITEST && !opts?.testUser });
 
+  app.register(helmet);
   app.register(cors, { origin: true });
   app.register(sensible);
+  app.register(rateLimit, {
+    max: parseInt(process.env.RATE_LIMIT_MAX ?? "100", 10) || 100,
+    timeWindow: process.env.RATE_LIMIT_WINDOW ?? "1 minute",
+  });
 
   app.register(fastifyJwt, {
     verify: { algorithms: ["ES256"] },
