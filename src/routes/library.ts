@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { db } from "../lib/db";
 import { toLibraryBook } from "../lib/mappers";
 import { getOrCreateUser } from "../lib/getOrCreateUser";
+import { LibraryItemStatus } from "../generated/prisma/client";
 
 const bookInclude = { bookSubjects: { include: { subject: true } } } as const;
 
@@ -61,7 +62,7 @@ export async function libraryRoute(app: FastifyInstance) {
       const { page = 1, limit = 20, status } = request.query as {
         page?: number;
         limit?: number;
-        status?: string;
+        status?: LibraryItemStatus;
       };
       const { sub, email, user_metadata } = request.user;
       const user = await getOrCreateUser(sub, email, user_metadata?.full_name ?? user_metadata?.name);
@@ -107,7 +108,7 @@ export async function libraryRoute(app: FastifyInstance) {
     },
     preHandler: [app.authenticate],
     handler: async (request, reply) => {
-      const { bookId, status } = request.body as { bookId: string; status: string };
+      const { bookId, status } = request.body as { bookId: string; status: LibraryItemStatus };
       const { sub, email, user_metadata } = request.user;
       const user = await getOrCreateUser(sub, email, user_metadata?.full_name ?? user_metadata?.name);
 
@@ -157,7 +158,7 @@ export async function libraryRoute(app: FastifyInstance) {
     handler: async (request, reply) => {
       const { bookId } = request.params as { bookId: string };
       const { status, progressPct, timeLeftMin, isCurrent } = request.body as {
-        status?: string;
+        status?: LibraryItemStatus;
         progressPct?: number;
         timeLeftMin?: number | null;
         isCurrent?: boolean;
