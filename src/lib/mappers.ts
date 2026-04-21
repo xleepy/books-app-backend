@@ -1,4 +1,5 @@
-import type { Book, BookSubject, Subject, Review, User, LibraryItem } from "../generated/prisma/client";
+import type { Book, BookSubject, Subject, Review, User, LibraryItem, Thread, ThreadReply } from "../generated/prisma/client";
+import { computeLevelInfo } from "./xp";
 
 type BookWithSubjects = Book & {
   bookSubjects: (BookSubject & { subject: Subject })[];
@@ -41,5 +42,137 @@ export function toLibraryBook(item: LibraryItemWithBook) {
     isCurrent: item.isCurrent,
     progressPct: Number(item.progressPct),
     timeLeftMin: item.timeLeftMin ?? null,
+  };
+}
+
+// ─── Thread mappers ────────────────────────────────────────────────────────────
+
+/** Human-readable relative time string ("2h ago", "3d ago", etc.) */
+export function toTimeAgo(date: Date): string {
+  const secs = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (secs < 0) return "just now";
+  if (secs < 60) return "just now";
+  const mins = Math.floor(secs / 60);
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days < 7) return `${days}d ago`;
+  const weeks = Math.floor(days / 7);
+  if (weeks < 5) return `${weeks}w ago`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months}mo ago`;
+  return `${Math.floor(days / 365)}y ago`;
+}
+
+type UserForProfile = {
+  id: string;
+  name: string;
+  email: string;
+  avatarHue: number;
+  level: number;
+  levelTitle: string;
+  xpTotal: number;
+  booksFinished: number;
+  pagesRead: number;
+  hoursRead: unknown;
+  streak: number;
+  bestStreak: number;
+  weekDays: unknown;
+  readingGoal: number;
+};
+
+export function toUserProfile(user: UserForProfile) {
+  const levelInfo = computeLevelInfo(user.xpTotal);
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    avatarHue: user.avatarHue,
+    level: user.level,
+    levelTitle: user.levelTitle,
+    xpTotal: user.xpTotal,
+    xpCurrentLevel: levelInfo.xpCurrentLevel,
+    xpToNextLevel: levelInfo.xpToNextLevel,
+    booksFinished: user.booksFinished,
+    pagesRead: user.pagesRead,
+    hoursRead: Number(user.hoursRead),
+    streak: user.streak,
+    bestStreak: user.bestStreak,
+    weekDays: user.weekDays,
+    readingGoal: user.readingGoal,
+  };
+}
+
+type ThreadWithRelations = Thread & {
+  creator: User;
+  book: Book | null;
+  _count: { replies: number };
+  threadLikes?: { userId: string }[];
+};
+
+type ThreadReplyWithUser = ThreadReply & { user: User };
+
+/** Builds the `bookContext` label shown in thread cards ("Title · Author" or "General") */
+function bookContext(book: Book | null): string {
+  if (!book) return "General";
+  return `${book.title} · ${book.author}`;
+}
+
+export function toThread(t: ThreadWithRelations, currentUserId?: string) {
+  return {
+    id: t.id,
+    title: t.title,
+    bookContext: bookContext(t.book),
+    preview: t.preview ?? "",
+    coverUrl: t.book?.coverUrl ?? null,
+    replies: t._count.replies,
+    likes: t.likes,
+    timeAgo: toTimeAgo(t.createdAt),
+    spoiler: t.spoiler,
+    liked: currentUserId
+      ? (t.threadLikes ?? []).some((l) => l.userId === currentUserId)
+      : false,
+    creatorName: t.creator.name,
+    creatorAvatarHue: t.creator.avatarHue,
+  };
+}
+
+export function toThreadReply(r: ThreadReplyWithUser) {
+  return {
+    id: r.id,
+    body: r.body,
+    timeAgo: toTimeAgo(r.createdAt),
+    creatorName: r.user.name,
+    creatorAvatarHue: r.user.avatarHue,
+  };
+}
+
+type ThreadDetailWithRelations = Thread & {
+  creator: User;
+  book: Book | null;
+  replies: ThreadReplyWithUser[];
+  threadLikes?: { userId: string }[];
+};
+
+export function toThreadDetail(t: ThreadDetailWithRelations, currentUserId?: string) {
+  return {
+    id: t.id,
+    title: t.title,
+    body: t.body ?? "",
+    bookContext: bookContext(t.book),
+    coverUrl: t.book?.coverUrl ?? null,
+    likes: t.likes,
+    timeAgo: toTimeAgo(t.createdAt),
+    spoiler: t.spoiler,
+    liked: currentUserId
+      ? (t.threadLikes ?? []).some((l) => l.userId === currentUserId)
+      : false,
+    creatorName: t.creator.name,
+    creatorAvatarHue: t.creator.avatarHue,
+    isOwner: currentUserId ? t.creatorId === currentUserId : false,
+    replies: t.replies
+      .filter((r) => r.deletedAt == null)
+      .map(toThreadReply),
   };
 }

@@ -6,6 +6,8 @@ const bookInclude = {
   bookSubjects: { include: { subject: true } },
 } as const;
 
+const MAX_FEED_CANDIDATES = 500;
+
 
 export async function booksRoute(app: FastifyInstance) {
   app.get("/books/feed", {
@@ -70,6 +72,7 @@ export async function booksRoute(app: FastifyInstance) {
         const candidates = await db.book.findMany({
           where,
           include: bookInclude,
+          take: MAX_FEED_CANDIDATES,
         });
 
         const getRatingCountOrZero = (book: typeof candidates[number]) => book.ratingCount ?? 0;

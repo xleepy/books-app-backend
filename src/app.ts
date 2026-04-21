@@ -14,7 +14,7 @@ import { authRoute } from "./routes/auth";
 import { booksRoute } from "./routes/books";
 import { reviewsRoute } from "./routes/reviews";
 import { libraryRoute } from "./routes/library";
-import { discussionsRoute } from "./routes/discussions";
+import { threadsRoute } from "./routes/threads";
 import { challengesRoute } from "./routes/challenges";
 import { meRoute } from "./routes/me";
 import { swipesRoute } from "./routes/swipes";
@@ -108,7 +108,7 @@ export function buildApp(opts?: { testUser?: TestUser }) {
         { name: "reviews", description: "Book reviews" },
         { name: "library", description: "User's personal book library" },
         { name: "me", description: "Authenticated user profile and preferences" },
-        { name: "discussions", description: "Discussion threads" },
+        { name: "discussions", description: "Discussion threads (threads)" },
         { name: "challenges", description: "Reading challenges and leaderboards" },
         { name: "swipes", description: "Swipe events for feed personalization" },
       ],
@@ -130,7 +130,7 @@ export function buildApp(opts?: { testUser?: TestUser }) {
   app.register(reviewsRoute);
   app.register(libraryRoute);
   app.register(meRoute);
-  app.register(discussionsRoute);
+  app.register(threadsRoute);
   app.register(challengesRoute);
   app.register(swipesRoute);
 

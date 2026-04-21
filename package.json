@@ -18,7 +18,8 @@
     "db:studio": "prisma studio",
     "test": "vitest run",
     "test:watch": "vitest",
-    "seed": "tsx scripts/seed/index.ts"
+    "seed": "tsx scripts/seed/index.ts",
+    "seed:challenges": "tsx scripts/seed/index.ts challenges"
   },
   "repository": {
     "type": "git",

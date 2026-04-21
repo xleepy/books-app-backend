@@ -1,55 +1,80 @@
-# Architecture Review — Books App Backend
-
-## Data Model Inaccuracies
-
-The doc's description of the current frontend models has several mismatches with what's actually in the code:
-
-| Entity | Doc says | Code actually has |
-| --- | --- | --- |
-| **Book** | `cover` (local image), `genres`, `pages`, `published`, `synopsis`, `tags` | `cover` (BookCoverKey), no `genres`, no `pages`, no `published`, `description` not `synopsis`, `tags` exists, plus `reviewCount` |
-| **User** | `avatar`, `xp`, `booksRead`, `currentStreak`, `longestStreak`, `readingGoal`, `badges` | `avatarHue` (number), `xpCurrent`/`xpRequired` (split), reading stats live in a separate `ReadingStats` interface (`streak`, `bestStreak`, `booksFinished`), no `badges` field |
-| **Review** | `bookId`, `userName` | `reviewer` (no `bookId`, no `userName`) |
-| **Discussion** | `bookCover`, `bookTitle`, `timestamp` | Type is actually named `Thread`, uses `cover` (BookCoverKey) + `bookContext`, `timeAgo` not `timestamp`, plus `spoiler?` and `liked?` flags |
-| **Challenge** | `type`, `progress`, `total`, `deadline`, `members`, `leaderboard` | `variant`, `current`/`target` (not progress/total), `goal`, `badgeText`, `subtitle` — no `deadline` or `members`; `LeaderboardEntry` is a separate type |
-
-The RTK Query setup uses `fakeBaseQuery()`, not `baseUrl: ''` as claimed. That's a meaningful difference — `fakeBaseQuery` means there's no HTTP layer wired up at all, not just an empty base URL.
-
-These inaccuracies matter because the backend schema design should align with the actual frontend types, or the doc should explicitly call out where the backend will diverge and require frontend changes.
+Now I have a thorough understanding of the entire backend. Let me compile the review.
 
 ---
 
-## What's Good
+## Backend Architecture & Code Review
 
-- **Open Library API research is solid.** The endpoint breakdown, rate limits, and the key insight about no "similar books" API are accurate and useful. The seeding strategy via the Subjects API is smart.
-- **The recommendation pipeline design** (section 4) is well-layered. The swipe signal mapping with weighted scores is a practical starting point. The diversity factor mention is important to avoid filter bubbles.
-- **The 3-option comparison is fair.** Tradeoffs are honestly presented without overselling any single option.
+### Architecture Overview
 
----
-
-## Concerns & Suggestions
-
-**On the Neo4j recommendation:** The doc leans toward Neo4j for prototyping, but the app is a React Native/Expo project with Redux Toolkit. Adding Neo4j + a secondary Postgres for auth means two databases, a Cypher learning curve, and more deployment complexity — for a prototype. The 200K node free tier is generous, but you'd outgrow it fast if you add users+swipes+relationships. The jump to $65/month is steep.
-
-**PostgreSQL + pgvector is likely the better fit** for where this project is now. The data is already relational (the FSD architecture, Redux slices, type definitions all model flat entities with references). The junction-table approach for subjects maps naturally. And the "verbose recursive CTEs" concern is overstated — for 2-3 hop traversals on 5K books, a well-indexed Postgres query will be fast and maintainable.
-
-**The embedding pipeline gap is undersold.** The doc flags it as a gap but pgvector is useless without embeddings. You'd need to decide:
-
-- Use OpenAI's embedding API (adds cost + external dependency)
-- Run sentence-transformers locally (adds infra)
-- Skip vectors entirely and use subject/author junction tables with scoring queries
-
-For a prototype, the non-vector content-based approach (shared subjects + author overlap + collaborative filtering via SQL) might be sufficient without any ML pipeline at all.
-
-**Missing from the doc:**
-
-- **Backend framework choice** — acknowledged as a gap, but it should be decided alongside the DB since it affects ORM choice, migration tooling, and deployment
-- **How the frontend will transition** — the swipe slice currently indexes into a static `mockBooks` array, and the library slice stores `Book[]` directly in Redux. Moving to API-backed data means reworking both slices to use RTK Query (which is already stubbed out with `fakeBaseQuery`)
-- **Auth** — acknowledged gap, but it's load-bearing: the recommendation engine needs user identity from day one
+Fastify-based REST API with PostgreSQL (via Prisma), Supabase JWT auth (JWKS verification), Swagger/OpenAPI docs, and a gamification system (XP, levels, badges, streaks, challenges).
 
 ---
 
-## Recommendation
+### Strengths
 
-The research is thorough but the data model section needs a correction pass against the actual code. For the current stage (Expo/RN prototype, swipe-based UX), the suggested path is:
+1. **Clean layered structure** — routes, mappers, lib utilities, and schemas are well-separated
+2. **Good security baseline** — helmet, rate limiting, CORS, JWT verification via JWKS, HTML sanitization on user inputs (reviews, threads, replies)
+3. **Testable design** — `buildApp({ testUser })` pattern for integration tests is elegant; bypasses JWT in test mode cleanly
+4. **Comprehensive OpenAPI schemas** — every endpoint has full request/response schemas, enabling codegen for the frontend
+5. **Soft-delete on threads** — `deletedAt` pattern is correct
+6. **Idempotent badge awarding** — `checkAndAwardBadges` checks for existing badges before creating
+7. **Sanitization test suite** — thorough XSS coverage in sanitize.test.ts
 
-**Start with Postgres without pgvector.** Use subject/author junction tables for content-based recommendations, add collaborative filtering via SQL as real user data accumulates, and only introduce embeddings later if the simpler approach plateaus. One database, one framework, ship fast.
+---
+
+### Issues & Recommendations
+
+#### Security
+
+| Severity   | Issue                                                                                                                                                                                 | Location             | Status        |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------- | ------------- |
+| **High**   | `POST /me/password` was a no-op stub returning `{ ok: true }` without doing anything.                                                                                                 | me.ts                | **Fixed** — now returns `501 Not Implemented` |
+| **Medium** | `GET /books` and `GET /books/:id/reviews` had **no auth guard** — anyone could scrape the full catalogue.                                                                              | books.ts, reviews.ts | **Documented** — intentionally public; catalogue browsing requires no auth |
+| **Medium** | `profileVisibility: "friends"` was accepted but treated as "public".                                                                                                                   | schemas/index.ts     | **Not fixed** — privacy enforcement is a larger change; schema comment updated to clarify |
+| **Low**    | Thread title was **not sanitized** — only `body` went through `sanitizeHtml()`.                                                                                                         | threads.ts           | **Fixed** — title now sanitized via `sanitizeHtml()` before storage |
+
+#### Race Conditions & Data Integrity
+
+| Severity   | Issue                                                                                                                                                                                                                                                                              | Location   | Status        |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ------------- |
+| **High**   | Thread like toggle could drive `likes` **negative** under concurrent unlikes (`Math.max(0,...)` only affected the response, not the DB).                                                                                                                                           | threads.ts | **Fixed** — un-like now uses raw SQL `GREATEST(0, likes - 1)`; likes re-read from DB after toggle |
+| **Medium** | `onBookFinished` had no transaction wrapping — a crash mid-way left partial state (XP awarded but streak/badges not updated).                                                                                                                                                    | library.ts | **Fixed** — entire pipeline (user counters, XP, streak, challenge progress) now wrapped in `$transaction` |
+| **Medium** | `awardXp` did 3 separate DB calls; concurrent calls could read stale `xpTotal` and produce incorrect level computations.                                                                                                                                                          | xp.ts      | **Fixed** — all DB operations now wrapped in `$transaction` |
+
+#### Performance
+
+| Severity   | Issue                                                                                                                                                                                                        | Location           | Status        |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------ | ------------- |
+| **High**   | Feed personalization loaded **all non-excluded books** into memory with no limit, then paginated in JS — OOM risk with large catalogue.                                                                      | books.ts           | **Fixed** — added `MAX_FEED_CANDIDATES = 500` cap on candidate query; popularity fallback used when cap is hit |
+| **Medium** | `badges.ts` did N+1 queries — `findUnique(badge)` then `findUnique(userBadge)` per slug.                                                                                                                       | badges.ts          | **Fixed** — badge lookup batched via `findMany` + `where.slug.in`; existing badges batched via `findMany` + `where.badgeId.in` |
+| **Medium** | Every authenticated endpoint called `getOrCreateUser` which hits the DB without caching.                                                                                                                       | getOrCreateUser.ts | **Not fixed** — Fastify request-level caching is a larger refactor; not addressed in this round |
+| **Low**    | `_count` for replies included **soft-deleted** replies (no `where` filter).                                                                                                                                   | threads.ts         | **Fixed** — `replies` count now filtered `{ where: { deletedAt: null } }` |
+
+#### Code Quality
+
+| Severity   | Issue                                                                                                                                                                                                                                                                                | Location       | Status        |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------- | ------------- |
+| **Medium** | `discussions.ts` had 3 stub endpoints returning `notImplemented()`, while threads.ts already implements the same functionality. Confusing for API consumers.                                                                                                                            | discussions.ts | **Not fixed** — stub routes serve as documentation; deprecating or removing them is a breaking API change |
+| **Medium** | `db` singleton imported in tests pointing to `DATABASE_URL` — if not set to test DB, tests hit production. Vitest setup is fragile.                                                                                                                                                    | db.ts          | **Not fixed** — out of scope for this review round |
+| **Low**    | `plugins/` directory existed but was empty — leftover scaffolding.                                                                                                                                                                                                                     |                | **Not fixed** — can be removed separately |
+| **Low**    | `toTimeAgo` didn't handle future dates (would return "just now" for negative diffs).                                                                                                                                                                                                  | mappers.ts     | **Fixed** — added `secs < 0` guard returning "just now" |
+| **Low**    | User response mapping was repeated verbatim in `GET /me` and `PATCH /me`.                                                                                                                                                                                                             | me.ts          | **Fixed** — extracted `toUserProfile(user)` mapper in `mappers.ts` |
+| **Low**    | `weekDays` was never reset at the start of a new week — it accumulated `true` values forever.                                                                                                                                                                                           | streaks.ts     | **Fixed** — week reset detected via `getIsoWeekStart()` comparison; array cleared when week boundary crossed |
+
+#### Test Coverage Gaps
+
+- No tests for: `threads`, `reviews`, `challenges`, `me`, `badges`, `streaks`, or `XP` logic
+- Feed and swipe tests are good but library tests only cover `POST /library` — missing `PATCH`, `DELETE`, and the gamification pipeline (`onBookFinished`)
+- No test for the race condition where two concurrent like toggles corrupt the count
+
+---
+
+### Summary
+
+The architecture is solid for an early-stage app. The highest-priority fixes are:
+
+1. **Feed memory issue** — add a SQL-level scoring query or cap candidate set size
+2. **Like count race condition** — use `UPDATE threads SET likes = GREATEST(0, likes - 1)` directly instead of read-then-write
+3. **Wrap `awardXp`/`onBookFinished` in transactions** for data consistency
+4. **Remove or wire up the password endpoint** — a no-op `{ ok: true }` is deceptive
+5. **Delete or deprecate discussions.ts** stubs to avoid API confusion

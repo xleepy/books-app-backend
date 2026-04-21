@@ -31,18 +31,55 @@ export const ReviewSchema = {
 export const ThreadSchema = {
   $id: "Thread",
   type: "object",
-  required: ["id", "title", "bookContext", "preview", "coverUrl", "replies", "likes", "timeAgo"],
+  required: ["id", "title", "bookContext", "preview", "replies", "likes", "timeAgo", "spoiler", "creatorName", "creatorAvatarHue"],
   properties: {
     id: { type: "string" },
     title: { type: "string" },
     bookContext: { type: "string" },
     preview: { type: "string" },
-    coverUrl: { type: "string" },
+    coverUrl: { type: "string", nullable: true },
     replies: { type: "integer" },
     likes: { type: "integer" },
     timeAgo: { type: "string" },
     spoiler: { type: "boolean" },
     liked: { type: "boolean" },
+    creatorName: { type: "string" },
+    creatorAvatarHue: { type: "integer" },
+  },
+} as const;
+
+export const ThreadReplySchema = {
+  $id: "ThreadReply",
+  type: "object",
+  required: ["id", "body", "timeAgo", "creatorName", "creatorAvatarHue"],
+  properties: {
+    id: { type: "string" },
+    body: { type: "string" },
+    timeAgo: { type: "string" },
+    creatorName: { type: "string" },
+    creatorAvatarHue: { type: "integer" },
+  },
+} as const;
+
+export const ThreadDetailSchema = {
+  $id: "ThreadDetail",
+  type: "object",
+  required: ["id", "title", "body", "bookContext", "likes", "timeAgo", "spoiler", "creatorName", "creatorAvatarHue", "isOwner", "replies"],
+  properties: {
+    id: { type: "string" },
+    title: { type: "string" },
+    body: { type: "string" },
+    bookContext: { type: "string" },
+    coverUrl: { type: "string", nullable: true },
+    likes: { type: "integer" },
+    timeAgo: { type: "string" },
+    spoiler: { type: "boolean" },
+    liked: { type: "boolean" },
+    creatorName: { type: "string" },
+    creatorAvatarHue: { type: "integer" },
+    /** True when the authenticated user is the thread creator */
+    isOwner: { type: "boolean" },
+    replies: { type: "array", items: { $ref: "ThreadReply" } },
   },
 } as const;
 
@@ -113,7 +150,7 @@ export const LibraryStatsSchema = {
 export const UserSchema = {
   $id: "User",
   type: "object",
-  required: ["id", "name", "avatarHue", "level", "levelTitle", "xpTotal", "booksFinished", "streak", "bestStreak", "weekDays", "readingGoal"],
+  required: ["id", "name", "avatarHue", "level", "levelTitle", "xpTotal", "xpCurrentLevel", "xpToNextLevel", "booksFinished", "streak", "bestStreak", "weekDays", "readingGoal"],
   properties: {
     id: { type: "string" },
     name: { type: "string" },
@@ -122,6 +159,10 @@ export const UserSchema = {
     level: { type: "integer" },
     levelTitle: { type: "string" },
     xpTotal: { type: "integer" },
+    /** XP earned within the current level (progress toward next level) */
+    xpCurrentLevel: { type: "integer" },
+    /** XP required to advance from current level to next */
+    xpToNextLevel: { type: "integer" },
     booksFinished: { type: "integer" },
     pagesRead: { type: "integer" },
     hoursRead: { type: "number" },
@@ -171,6 +212,19 @@ export const ErrorSchema = {
   },
 } as const;
 
+export const UserBadgeSchema = {
+  $id: "UserBadge",
+  type: "object",
+  required: ["slug", "name", "awardedAt"],
+  properties: {
+    slug: { type: "string" },
+    name: { type: "string" },
+    description: { type: "string", nullable: true },
+    iconUrl: { type: "string", nullable: true },
+    awardedAt: { type: "string", format: "date-time" },
+  },
+} as const;
+
 export const AuthTokensSchema = {
   $id: "AuthTokens",
   type: "object",
@@ -188,8 +242,11 @@ export const allSchemas = [
   PreferencesSchema,
   ReviewSchema,
   ThreadSchema,
+  ThreadReplySchema,
+  ThreadDetailSchema,
   ChallengeSchema,
   LeaderboardEntrySchema,
+  UserBadgeSchema,
   PaginationSchema,
   ErrorSchema,
   AuthTokensSchema,

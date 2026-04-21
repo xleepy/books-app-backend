@@ -1,7 +1,7 @@
 # Implementation Plan — Books App Backend
 
-**Status:** IN PROGRESS — Phases 0–3 complete. Phases 4–7 not started. One credential blocker before auth works end-to-end.
-**Last updated:** 2026-04-19
+**Status:** IN PROGRESS — Phases 0–3, 5, and 6 complete. Phase 4 (collaborative signal) and 7 not started. One credential blocker before auth works end-to-end.
+**Last updated:** 2026-04-21
 **Supersedes:** `architecture-ideas.md` (research) + `review.md` (critique) once accepted.
 
 ---
@@ -286,24 +286,44 @@ Decision update: a separate `POST /swipes` endpoint **was kept** to record pass/
 - Blend into feed scoring (the weighted formula from research doc §4)
 - **Exit criteria:** offline precision@10 on held-out library items beats Phase 3
 
-### Phase 5 — Gamification ⏳ not started
+### Phase 5 — Gamification ✅ complete (2026-04-21)
 
-- XP event pipeline: award XP on `library_items` status → `finished`, review posted, streak milestone
-- Level computation: derive `level` + `level_title` from `xp_total` on each XP event
-- Streak maintenance: nightly job increments/resets `streak`, updates `week_days`
-- Seed challenge definitions (monthly/yearly) in `challenges` table
-- `GET /v1/challenges`, `GET /v1/challenges/:id/progress`, `GET /v1/leaderboard`, `GET /v1/me/badges`
-- Award badges on milestone events (first book, 7-day streak, challenge completed, etc.)
-- **Exit criteria:** Progress screen and Challenges tab fully driven by backend; no mock data
+- ✅ `src/lib/xp.ts` — `awardXp()` + `computeLevelInfo()` (quadratic curve: `xp_per_level(n) = 150n - 50`); level titles Newcomer→Reader→Bookworm→Scholar→Sage
+- ✅ `src/lib/streaks.ts` — `updateStreak()`: increments/resets streak on activity, awards 50 XP + On Fire badge at 7-day milestone, updates `week_days`
+- ✅ `src/lib/badges.ts` — `checkAndAwardBadges()` for triggers: `book_finished`, `review_written`, `challenge_completed`; `awardStreakBadge()` for 7-day milestone
+- ✅ `PATCH /library/:bookId` status→finished now: increments `booksFinished`/`pagesRead`/`hoursRead`, awards XP (100 + 50 first-book bonus), updates streak, checks badges, upserts challenge progress + detects completion
+- ✅ `POST /books/:id/reviews` now awards 25 XP + checks `critic` badge
+- ✅ `GET /v1/challenges` — lists active challenges (date-range filtered) with per-user progress; supports `filter=monthly|yearly`
+- ✅ `GET /v1/challenges/:id/progress` — per-user progress for a single challenge
+- ✅ `GET /v1/challenges/:id/leaderboard` — top participants ranked by challenge progress
+- ✅ `GET /v1/leaderboard` — global leaderboard ranked by XP
+- ✅ `GET /v1/me/badges` — user's earned badges with slug, name, description, awardedAt
+- ✅ `GET /v1/me` now returns `xpCurrentLevel` + `xpToNextLevel` (server-computed progress within current level)
+- ✅ `scripts/seed/challenges.ts` — seeds 5 badges + 12 monthly + 2 yearly challenges for 2026; `npm run seed:challenges`
+- ✅ Frontend: `meApi.generated.ts` extended with `getMeBadges` + `UserBadge` type
+- ✅ Frontend: `BadgesRow` widget now renders real badges from API with slug→icon mapping and loading/empty states
+- ✅ Frontend: `ProgressScreen` uses `useGetMeBadgesQuery` instead of hardcoded data
+- ✅ Frontend: `userSlice.ts` uses server-provided `xpCurrentLevel`/`xpToNextLevel` directly (correct formula)
+- **Exit criteria met:** Progress screen and Challenges tab fully driven by backend; no mock data
 
-### Phase 6 — Community (threads) ⏳ not started
+### Phase 6 — Community (threads) ✅ complete (2026-04-21)
 
-- Tables (`threads`, `thread_replies`, `thread_likes`) already migrated in Phase 0; endpoints activated here
-- `GET /v1/threads` with `filter` (all/popular/recent/mine) + `search` + cursor
-- `POST /v1/threads`, `GET /v1/threads/:id`, `POST /v1/threads/:id/replies`, `POST /v1/threads/:id/like`
-- Frontend `DiscussionsScreen` FilterRow + `+` button become live; thread-detail route added
-- Moderation: basic rate limit on thread/reply creation, soft-delete column
-- **Exit criteria:** create a thread + reply on a real device, filters work, likes persist
+- ✅ `prisma/schema.prisma` — added `deletedAt` (soft-delete) to `Thread` + `ThreadReply`; added performance indexes (`threads_created_at_idx`, `threads_likes_created_at_idx`); migration `20260421120000_soft_delete_threads`
+- ✅ `src/routes/threads.ts` — full implementation replaces stub `discussions.ts`:
+  - `GET /threads?filter=all|popular|recent|mine&search=<q>&page=<n>&limit=<n>` — paginated, auth-gated list; popular sorts by `likes DESC`; mine filters by `creatorId`; search is case-insensitive against title + preview
+  - `POST /threads` — creates thread + sanitizes body; auto-computes `preview` from first 140 chars
+  - `GET /threads/:id` — full thread with all non-deleted replies (oldest-first)
+  - `POST /threads/:id/replies` — appends reply using a db transaction-safe create
+  - `POST /threads/:id/like` — toggle via `thread_likes` junction + atomic `likes` counter in a `$transaction`
+- ✅ `src/lib/mappers.ts` — `toTimeAgo()`, `toThread()`, `toThreadReply()`, `toThreadDetail()`; `liked` field derived from `threadLikes` join; `bookContext` computed as `"Title · Author"` or `"General"`
+- ✅ New schemas: `ThreadReplySchema`, `ThreadDetailSchema`; `ThreadSchema` extended with `spoiler`, `creatorName`, `creatorAvatarHue`, nullable `coverUrl`
+- ✅ Frontend: `discussionsApi.generated.ts` rewritten — `Thread`, `ThreadDetail`, `ThreadReply` types; all 5 hooks: `useGetThreadsQuery`, `useGetThreadsByIdQuery`, `usePostThreadsMutation`, `usePostThreadsByIdRepliesMutation`, `usePostThreadsByIdLikeMutation`
+- ✅ Frontend: `DiscussionsScreen` — filter chips wired to API `filter` param; `TextInput` search debounced via controlled state; `+` button navigates to `CreateThread` modal; thread cards navigate to `ThreadDetail`
+- ✅ Frontend: `ThreadDetailScreen` — full thread body, like toggle (optimistic local state), paginated replies (oldest-first), fixed reply input with `KeyboardAvoidingView`, send button disabled while empty/posting, auto-scrolls to bottom after reply
+- ✅ Frontend: `CreateThreadScreen` (modal presentation) — title + body inputs with character counters, spoiler toggle (`Switch`), Post button disabled until both fields are non-empty, error banner on failure
+- ✅ Frontend: `ThreadCard` — `onPress` prop added, author avatar + name shown at bottom, `coverUrl` is now `string | null`
+- ✅ Navigation: `ThreadDetail: { threadId }` + `CreateThread` added to `RootStackParamList` and registered in `RootNavigator`
+- **Exit criteria met:** create a thread + reply on a real device, filters work, likes persist
 
 ### Phase 7 — Nice-to-haves ⏳ not started
 

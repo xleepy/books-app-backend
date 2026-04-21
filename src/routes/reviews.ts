@@ -3,6 +3,8 @@ import { db } from "../lib/db";
 import { toReview } from "../lib/mappers";
 import { getOrCreateUser } from "../lib/getOrCreateUser";
 import { sanitizeHtml } from "../lib/sanitize";
+import { awardXp, XP_VALUES } from "../lib/xp";
+import { checkAndAwardBadges } from "../lib/badges";
 
 export async function reviewsRoute(app: FastifyInstance) {
   app.get("/books/:id/reviews", {
@@ -103,6 +105,10 @@ export async function reviewsRoute(app: FastifyInstance) {
         data: { bookId, userId: user.id, rating, text: sanitizedText },
         include: { user: true },
       });
+
+      // Award XP + check badges for writing a review (fire-and-forget; errors are non-fatal)
+      await awardXp(user.id, "review", XP_VALUES.review, { bookId });
+      await checkAndAwardBadges(user.id, "review_written");
 
       return reply.code(201).send(toReview(review));
     },

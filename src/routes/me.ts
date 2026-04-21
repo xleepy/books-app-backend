@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { db } from "../lib/db";
-import { toLibraryBook } from "../lib/mappers";
+import { toLibraryBook, toUserProfile } from "../lib/mappers";
 import { getOrCreateUser } from "../lib/getOrCreateUser";
 
 const bookInclude = { bookSubjects: { include: { subject: true } } } as const;
@@ -20,23 +20,7 @@ export async function meRoute(app: FastifyInstance) {
     handler: async (request, reply) => {
       const { sub, email, user_metadata } = request.user;
       const user = await getOrCreateUser(sub, email, user_metadata?.full_name ?? user_metadata?.name);
-
-      return reply.send({
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        avatarHue: user.avatarHue,
-        level: user.level,
-        levelTitle: user.levelTitle,
-        xpTotal: user.xpTotal,
-        booksFinished: user.booksFinished,
-        pagesRead: user.pagesRead,
-        hoursRead: Number(user.hoursRead),
-        streak: user.streak,
-        bestStreak: user.bestStreak,
-        weekDays: user.weekDays,
-        readingGoal: user.readingGoal,
-      });
+      return reply.send(toUserProfile(user));
     },
   });
 
@@ -77,22 +61,7 @@ export async function meRoute(app: FastifyInstance) {
         },
       });
 
-      return reply.send({
-        id: updated.id,
-        name: updated.name,
-        email: updated.email,
-        avatarHue: updated.avatarHue,
-        level: updated.level,
-        levelTitle: updated.levelTitle,
-        xpTotal: updated.xpTotal,
-        booksFinished: updated.booksFinished,
-        pagesRead: updated.pagesRead,
-        hoursRead: Number(updated.hoursRead),
-        streak: updated.streak,
-        bestStreak: updated.bestStreak,
-        weekDays: updated.weekDays,
-        readingGoal: updated.readingGoal,
-      });
+      return reply.send(toUserProfile(updated));
     },
   });
 
@@ -197,8 +166,50 @@ export async function meRoute(app: FastifyInstance) {
       },
     },
     preHandler: [app.authenticate],
-    // Password change goes through Supabase's client SDK; this endpoint exists for completeness.
-    handler: async (_req, reply) => reply.send({ ok: true }),
+    handler: async (_req, reply) => reply.notImplemented(),
+  });
+
+  app.get("/me/badges", {
+    schema: {
+      tags: ["me"],
+      summary: "Get authenticated user's earned badges",
+      security: [{ bearerAuth: [] }],
+      response: {
+        200: {
+          type: "object",
+          required: ["data"],
+          properties: {
+            data: { type: "array", items: { $ref: "UserBadge" } },
+          },
+        },
+        401: { $ref: "ApiError" },
+      },
+    },
+    preHandler: [app.authenticate],
+    handler: async (request, reply) => {
+      const { sub, email, user_metadata } = request.user;
+      const user = await getOrCreateUser(
+        sub,
+        email,
+        user_metadata?.full_name ?? user_metadata?.name
+      );
+
+      const badges = await db.userBadge.findMany({
+        where: { userId: user.id },
+        include: { badge: true },
+        orderBy: { awardedAt: "desc" },
+      });
+
+      return reply.send({
+        data: badges.map((ub) => ({
+          slug: ub.badge.slug,
+          name: ub.badge.name,
+          description: ub.badge.description ?? null,
+          iconUrl: ub.badge.iconUrl ?? null,
+          awardedAt: ub.awardedAt.toISOString(),
+        })),
+      });
+    },
   });
 
   app.get("/me/current-book", {

@@ -3,8 +3,117 @@ import { db } from "../lib/db";
 import { toLibraryBook } from "../lib/mappers";
 import { getOrCreateUser } from "../lib/getOrCreateUser";
 import { LibraryItemStatus } from "../generated/prisma/client";
+import { XP_VALUES, computeLevelInfo } from "../lib/xp";
+import { checkAndAwardBadges } from "../lib/badges";
 
 const bookInclude = { bookSubjects: { include: { subject: true } } } as const;
+
+/**
+ * Called after a book transitions to "finished".
+ * Awards XP, updates streak, checks badges, and increments progress on all
+ * currently-active challenges for the user.
+ */
+async function onBookFinished(userId: string, book: { pageCount?: number | null }): Promise<void> {
+  const today = new Date();
+
+  await db.$transaction(async (tx) => {
+    const pageCount = book.pageCount ?? 0;
+    await tx.user.update({
+      where: { id: userId },
+      data: {
+        booksFinished: { increment: 1 },
+        pagesRead: { increment: pageCount },
+        hoursRead: { increment: Math.round((pageCount / 30) * 100) / 100 },
+      },
+    });
+
+    const previousBooks = await tx.libraryItem.count({
+      where: { userId, status: "finished" },
+    });
+    await tx.xpEvent.create({
+      data: { userId, source: "book_finished", xp: XP_VALUES.book_finished, meta: { pageCount } },
+    });
+    const afterFinish = await tx.user.update({
+      where: { id: userId },
+      data: { xpTotal: { increment: XP_VALUES.book_finished } },
+      select: { xpTotal: true, level: true, levelTitle: true },
+    });
+    const levelInfo = computeLevelInfo(afterFinish.xpTotal);
+    if (afterFinish.level !== levelInfo.level || afterFinish.levelTitle !== levelInfo.levelTitle) {
+      await tx.user.update({
+        where: { id: userId },
+        data: { level: levelInfo.level, levelTitle: levelInfo.levelTitle },
+      });
+    }
+    if (previousBooks === 1) {
+      await tx.xpEvent.create({
+        data: { userId, source: "first_book", xp: XP_VALUES.first_book, meta: {} },
+      });
+      await tx.user.update({
+        where: { id: userId },
+        data: { xpTotal: { increment: XP_VALUES.first_book } },
+      });
+    }
+
+    const user = await tx.user.findUnique({ where: { id: userId } });
+    if (user) {
+      const today_ = new Date();
+      const isoDow = today_.getDay() === 0 ? 6 : today_.getDay() - 1;
+      let newStreak = user.streak;
+      const prevDate = user.streakLastDate;
+      if (prevDate) {
+        const prevDay = new Date(prevDate.getFullYear(), prevDate.getMonth(), prevDate.getDate());
+        const diff = Math.round((today_.getTime() - prevDay.getTime()) / (24 * 60 * 60 * 1000));
+        if (diff === 0) {
+          // already counted today
+        } else if (diff === 1) {
+          newStreak = user.streak + 1;
+        } else {
+          newStreak = 1;
+        }
+      } else {
+        newStreak = 1;
+      }
+      const weekDays = [...user.weekDays] as boolean[];
+      weekDays[isoDow] = true;
+      await tx.user.update({
+        where: { id: userId },
+        data: { streak: newStreak, bestStreak: Math.max(newStreak, user.bestStreak), streakLastDate: today_, weekDays },
+      });
+    }
+
+    const activeChallenges = await tx.challenge.findMany({
+      where: { activeFrom: { lte: today }, activeTo: { gte: today } },
+    });
+    for (const challenge of activeChallenges) {
+      const uc = await tx.userChallenge.upsert({
+        where: { userId_challengeId: { userId, challengeId: challenge.id } },
+        create: { userId, challengeId: challenge.id, current: 1 },
+        update: { current: { increment: 1 } },
+      });
+      if (uc.current >= challenge.target && uc.completedAt == null) {
+        await tx.userChallenge.update({
+          where: { userId_challengeId: { userId, challengeId: challenge.id } },
+          data: { completedAt: today },
+        });
+        await tx.xpEvent.create({
+          data: { userId, source: "challenge", xp: XP_VALUES.challenge, meta: { challengeId: challenge.id, challengeTitle: challenge.title } },
+        });
+        const updated = await tx.user.update({
+          where: { id: userId },
+          data: { xpTotal: { increment: XP_VALUES.challenge } },
+          select: { xpTotal: true, level: true, levelTitle: true },
+        });
+        const li = computeLevelInfo(updated.xpTotal);
+        if (updated.level !== li.level || updated.levelTitle !== li.levelTitle) {
+          await tx.user.update({ where: { id: userId }, data: { level: li.level, levelTitle: li.levelTitle } });
+        }
+      }
+    }
+  });
+
+  await checkAndAwardBadges(userId, "book_finished");
+}
 
 export async function libraryRoute(app: FastifyInstance) {
   app.get("/library/stats", {
@@ -193,6 +302,11 @@ export async function libraryRoute(app: FastifyInstance) {
         },
         include: { book: { include: bookInclude } },
       });
+
+      // Fire gamification pipeline when a book is newly finished
+      if (status === "finished" && existing.status !== "finished") {
+        await onBookFinished(user.id, item.book);
+      }
 
       return reply.send(toLibraryBook(item));
     },

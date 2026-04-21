@@ -273,31 +273,35 @@ model UserChallenge {
 // ─── Community ────────────────────────────────────────────────────────────────
 
 model Thread {
-  id        String   @id @default(uuid())
-  creatorId String   @map("creator_id")
-  bookId    String?  @map("book_id")
+  id        String    @id @default(uuid())
+  creatorId String    @map("creator_id")
+  bookId    String?   @map("book_id")
   title     String
   preview   String?
   body      String?
-  spoiler   Boolean  @default(false)
-  likes     Int      @default(0)
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+  spoiler   Boolean   @default(false)
+  likes     Int       @default(0)
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
 
-  creator User          @relation(fields: [creatorId], references: [id])
-  book    Book?         @relation(fields: [bookId], references: [id])
-  replies ThreadReply[]
+  creator     User          @relation(fields: [creatorId], references: [id])
+  book        Book?         @relation(fields: [bookId], references: [id])
+  replies     ThreadReply[]
   threadLikes ThreadLike[]
 
+  @@index([createdAt(sort: Desc)])
+  @@index([likes(sort: Desc), createdAt(sort: Desc)])
   @@map("threads")
 }
 
 model ThreadReply {
-  id        String   @id @default(uuid())
-  threadId  String   @map("thread_id")
-  userId    String   @map("user_id")
+  id        String    @id @default(uuid())
+  threadId  String    @map("thread_id")
+  userId    String    @map("user_id")
   body      String
-  createdAt DateTime @default(now()) @map("created_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  deletedAt DateTime? @map("deleted_at")
 
   thread Thread @relation(fields: [threadId], references: [id], onDelete: Cascade)
   user   User   @relation(fields: [userId], references: [id])
