@@ -85,7 +85,7 @@ enum LibraryItemStatus {
 }
 ```
 
-**Decimals**: Use `@db.Decimal(precision, scale)` for ratings, scores, and monetary values. Never use `Float`.
+**Decimals**: Use `@db.Decimal(precision, scale)` for ratings, scores, and monetary values. Never use `Float`. Integer types are acceptable for discrete rating scales (e.g. `Int` for 1–5 star ratings).
 
 **Adding a new model**:
 

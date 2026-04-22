@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { db } from "../lib/db";
 import { getOrCreateUser } from "../lib/getOrCreateUser";
+import { toChallenge, toLeaderboardEntry } from "../lib/mappers";
 
 export async function challengesRoute(app: FastifyInstance) {
   // ─── Global leaderboard ────────────────────────────────────────────────────
@@ -42,17 +43,7 @@ export async function challengesRoute(app: FastifyInstance) {
         take: limit,
       });
 
-      const data = users.map((u, i) => ({
-        id: u.id,
-        rank: i + 1,
-        name: u.name,
-        level: u.level,
-        levelTitle: u.levelTitle,
-        books: u.booksFinished,
-        xp: u.xpTotal,
-        isYou: u.id === currentUser.id,
-        avatarHue: u.avatarHue,
-      }));
+      const data = users.map((u, i) => toLeaderboardEntry(u, i + 1, currentUser.id));
 
       return reply.send({ data });
     },
@@ -122,16 +113,9 @@ export async function challengesRoute(app: FastifyInstance) {
         userChallenges.map((uc) => [uc.challengeId, uc.current])
       );
 
-      const data = challenges.map((c) => ({
-        id: c.id,
-        title: c.title,
-        subtitle: c.subtitle ?? "",
-        goal: c.goal ?? "",
-        current: progressMap.get(c.id) ?? 0,
-        target: c.target,
-        badgeText: c.badge?.name ?? "",
-        variant: c.variant as "monthly" | "yearly",
-      }));
+      const data = challenges.map((c) =>
+        toChallenge(c, progressMap.get(c.id) ?? 0),
+      );
 
       return reply.send({ data });
     },
@@ -243,17 +227,13 @@ export async function challengesRoute(app: FastifyInstance) {
         include: { user: true },
       });
 
-      const data = entries.map((e, i) => ({
-        id: e.user.id,
-        rank: i + 1,
-        name: e.user.name,
-        level: e.user.level,
-        levelTitle: e.user.levelTitle,
-        books: e.current,
-        xp: e.user.xpTotal,
-        isYou: e.user.id === currentUser.id,
-        avatarHue: e.user.avatarHue,
-      }));
+      const data = entries.map((e, i) =>
+        toLeaderboardEntry(
+          { id: e.user.id, name: e.user.name, level: e.user.level, levelTitle: e.user.levelTitle, booksFinished: e.current, xpTotal: e.user.xpTotal, avatarHue: e.user.avatarHue },
+          i + 1,
+          currentUser.id,
+        ),
+      );
 
       return reply.send({ data });
     },

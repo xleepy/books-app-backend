@@ -6,11 +6,10 @@ export async function getOrCreateUser(
   email: string,
   displayName?: string
 ): Promise<User> {
-  const existing = await db.user.findUnique({ where: { authId } });
-  if (existing) return existing;
-
-  return db.user.create({
-    data: {
+  return db.user.upsert({
+    where: { authId },
+    update: {},
+    create: {
       authId,
       email,
       name: displayName || email.split("@")[0],

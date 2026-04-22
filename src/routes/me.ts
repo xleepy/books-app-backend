@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { db } from "../lib/db";
-import { toLibraryBook, toUserProfile } from "../lib/mappers";
+import { toLibraryBook, toUserProfile, toPreferences, toUserBadge } from "../lib/mappers";
 import { getOrCreateUser } from "../lib/getOrCreateUser";
 
 const bookInclude = { bookSubjects: { include: { subject: true } } } as const;
@@ -85,16 +85,7 @@ export async function meRoute(app: FastifyInstance) {
         prefs = await db.userPreferences.create({ data: { userId: user.id } });
       }
 
-      return reply.send({
-        readingGoalMinutes: prefs.readingGoalMinutes,
-        reminderTime: prefs.reminderTime ?? null,
-        reminderEnabled: prefs.reminderEnabled,
-        preferredGenres: prefs.preferredGenres,
-        notifyPush: prefs.notifyPush,
-        notifyWeeklyDigest: prefs.notifyWeeklyDigest,
-        notifyChallenge: prefs.notifyChallenge,
-        profileVisibility: prefs.profileVisibility,
-      });
+      return reply.send(toPreferences(prefs));
     },
   });
 
@@ -130,16 +121,7 @@ export async function meRoute(app: FastifyInstance) {
         update: body,
       });
 
-      return reply.send({
-        readingGoalMinutes: prefs.readingGoalMinutes,
-        reminderTime: prefs.reminderTime ?? null,
-        reminderEnabled: prefs.reminderEnabled,
-        preferredGenres: prefs.preferredGenres,
-        notifyPush: prefs.notifyPush,
-        notifyWeeklyDigest: prefs.notifyWeeklyDigest,
-        notifyChallenge: prefs.notifyChallenge,
-        profileVisibility: prefs.profileVisibility,
-      });
+      return reply.send(toPreferences(prefs));
     },
   });
 
@@ -201,13 +183,7 @@ export async function meRoute(app: FastifyInstance) {
       });
 
       return reply.send({
-        data: badges.map((ub) => ({
-          slug: ub.badge.slug,
-          name: ub.badge.name,
-          description: ub.badge.description ?? null,
-          iconUrl: ub.badge.iconUrl ?? null,
-          awardedAt: ub.awardedAt.toISOString(),
-        })),
+        data: badges.map(toUserBadge),
       });
     },
   });

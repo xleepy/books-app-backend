@@ -283,19 +283,17 @@ export async function threadsRoute(app: FastifyInstance) {
       let liked: boolean;
 
       if (existing) {
-        // Un-like — use raw SQL so the DB enforces likes >= 0 atomically
-        await db.$transaction([
-          db.threadLike.delete({ where: { userId_threadId: { userId: user.id, threadId } } }),
-          db.$queryRaw`UPDATE "Thread" SET likes = GREATEST(0, likes - 1) WHERE id = ${threadId}`,
-        ]);
-        liked = false;
+        liked = await db.$transaction(async (tx) => {
+          await tx.threadLike.delete({ where: { userId_threadId: { userId: user.id, threadId } } });
+          await tx.$queryRaw`UPDATE "Thread" SET likes = GREATEST(0, likes - 1) WHERE id = ${threadId}`;
+          return false;
+        });
       } else {
-        // Like
-        await db.$transaction([
-          db.threadLike.create({ data: { userId: user.id, threadId } }),
-          db.thread.update({ where: { id: threadId }, data: { likes: { increment: 1 } } }),
-        ]);
-        liked = true;
+        liked = await db.$transaction(async (tx) => {
+          await tx.threadLike.create({ data: { userId: user.id, threadId } });
+          await tx.thread.update({ where: { id: threadId }, data: { likes: { increment: 1 } } });
+          return true;
+        });
       }
 
       const [{ likes }] = await db.$queryRaw<[{ likes: number }]>`

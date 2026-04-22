@@ -182,6 +182,7 @@ model LibraryItem {
 
   @@id([userId, bookId])
   @@index([userId])
+  @@index([userId, status])
   @@map("library_items")
 }
 
@@ -196,6 +197,8 @@ model Review {
   book Book @relation(fields: [bookId], references: [id])
   user User @relation(fields: [userId], references: [id])
 
+  @@index([bookId])
+  @@index([userId])
   @@map("reviews")
 }
 
@@ -211,6 +214,7 @@ model XpEvent {
 
   user User @relation(fields: [userId], references: [id])
 
+  @@index([userId])
   @@map("xp_events")
 }
 
@@ -318,6 +322,7 @@ model ThreadLike {
   thread Thread @relation(fields: [threadId], references: [id])
 
   @@id([userId, threadId])
+  @@index([threadId])
   @@map("thread_likes")
 }
 

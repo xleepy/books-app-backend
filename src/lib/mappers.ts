@@ -1,4 +1,4 @@
-import type { Book, BookSubject, Subject, Review, User, LibraryItem, Thread, ThreadReply } from "../generated/prisma/client";
+import type { Book, BookSubject, Subject, Review, User, LibraryItem, Thread, ThreadReply, UserPreferences, UserBadge, Challenge } from "../generated/prisma/client";
 import { computeLevelInfo } from "./xp";
 
 type BookWithSubjects = Book & {
@@ -174,5 +174,77 @@ export function toThreadDetail(t: ThreadDetailWithRelations, currentUserId?: str
     replies: t.replies
       .filter((r) => r.deletedAt == null)
       .map(toThreadReply),
+  };
+}
+
+// ─── Preferences mapper ────────────────────────────────────────────────────────
+
+export function toPreferences(p: UserPreferences) {
+  return {
+    readingGoalMinutes: p.readingGoalMinutes,
+    reminderTime: p.reminderTime ?? null,
+    reminderEnabled: p.reminderEnabled,
+    preferredGenres: p.preferredGenres,
+    notifyPush: p.notifyPush,
+    notifyWeeklyDigest: p.notifyWeeklyDigest,
+    notifyChallenge: p.notifyChallenge,
+    profileVisibility: p.profileVisibility,
+  };
+}
+
+// ─── Badge mapper ──────────────────────────────────────────────────────────────
+
+type UserBadgeWithBadge = UserBadge & { badge: { slug: string; name: string; description: string | null; iconUrl: string | null } };
+
+export function toUserBadge(ub: UserBadgeWithBadge) {
+  return {
+    slug: ub.badge.slug,
+    name: ub.badge.name,
+    description: ub.badge.description ?? null,
+    iconUrl: ub.badge.iconUrl ?? null,
+    awardedAt: ub.awardedAt.toISOString(),
+  };
+}
+
+// ─── Challenge mapper ──────────────────────────────────────────────────────────
+
+type ChallengeWithBadge = Challenge & { badge: { name: string } | null };
+
+export function toChallenge(c: ChallengeWithBadge, current: number) {
+  return {
+    id: c.id,
+    title: c.title,
+    subtitle: c.subtitle ?? "",
+    goal: c.goal ?? "",
+    current,
+    target: c.target,
+    badgeText: c.badge?.name ?? "",
+    variant: c.variant as "monthly" | "yearly",
+  };
+}
+
+// ─── Leaderboard entry mapper ──────────────────────────────────────────────────
+
+type UserForLeaderboard = {
+  id: string;
+  name: string;
+  level: number;
+  levelTitle: string;
+  booksFinished: number;
+  xpTotal: number;
+  avatarHue: number;
+};
+
+export function toLeaderboardEntry(u: UserForLeaderboard, rank: number, currentUserId: string) {
+  return {
+    id: u.id,
+    rank,
+    name: u.name,
+    level: u.level,
+    levelTitle: u.levelTitle,
+    books: u.booksFinished,
+    xp: u.xpTotal,
+    isYou: u.id === currentUserId,
+    avatarHue: u.avatarHue,
   };
 }
