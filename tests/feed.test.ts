@@ -123,6 +123,9 @@ beforeAll(async () => {
 afterAll(async () => {
   const user = await db.user.findUnique({ where: { authId: TEST_USER.sub } });
   if (user) {
+    await db.xpEvent.deleteMany({ where: { userId: user.id } });
+    await db.userBadge.deleteMany({ where: { userId: user.id } });
+    await db.userChallenge.deleteMany({ where: { userId: user.id } });
     await db.libraryItem.deleteMany({ where: { userId: user.id } });
     await db.userPreferences.deleteMany({ where: { userId: user.id } });
     await db.user.delete({ where: { id: user.id } });

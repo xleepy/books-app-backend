@@ -71,6 +71,7 @@ src/
 6. **Wrap multi-step ops** in `db.$transaction()` for consistency
 7. **Run `Promise.all([count, findMany])`** for pagination
 8. **Sanitize user input** with `sanitizeHtml()` before storing
+9. **If your change touches logic covered by integration tests, review and run those tests.** Before finishing, inspect the relevant test file(s) in `tests/` to ensure your changes don't break existing assertions or data setup/teardown, and run `npm run test` to confirm everything passes.
 
 ---
 
