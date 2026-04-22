@@ -19,7 +19,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "seed": "tsx scripts/seed/index.ts",
-    "seed:challenges": "tsx scripts/seed/index.ts challenges"
+    "seed:challenges": "tsx scripts/seed/index.ts challenges",
+    "worker": "node dist/worker.js"
   },
   "repository": {
     "type": "git",
@@ -42,6 +43,7 @@
     "@fastify/swagger-ui": "^5.2.5",
     "@prisma/adapter-pg": "^7.7.0",
     "@prisma/client": "^7.7.0",
+    "croner": "^10.0.1",
     "dotenv": "^17.4.2",
     "fastify": "^5.8.5",
     "jwks-rsa": "^4.0.1",

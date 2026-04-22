@@ -127,6 +127,46 @@ Add `-v` to also delete the Postgres volume (wipes all data):
 docker compose down -v
 ```
 
+## Nightly worker (background jobs)
+
+The backend includes a standalone `worker` process for scheduled background jobs (e.g., refreshing the collaborative-filtering materialized view). It lives in `src/worker.ts` and is **not** started by default.
+
+### Local development
+
+```bash
+npm run build   # worker runs from dist/worker.js
+npm run worker
+```
+
+The worker will log its next scheduled run and execute jobs according to the `croner` schedule defined in `src/worker.ts`.
+
+### Docker Compose
+
+The `worker` service is gated behind a Docker Compose profile so it does not start automatically:
+
+```bash
+# Start only the worker
+docker compose --profile worker up -d worker
+
+# Start API + DB + worker together
+docker compose --profile worker up -d
+```
+
+To stop the worker without affecting the API:
+
+```bash
+docker compose stop worker
+```
+
+**Current jobs:**
+| Schedule | Job | Description |
+|----------|-----|-------------|
+| 03:00 daily | Refresh co-liked matrix | `REFRESH MATERIALIZED VIEW CONCURRENTLY book_co_like_matrix` |
+
+Future jobs (recommendation cache precompute, weekly digests, etc.) can be added to `src/worker.ts`.
+
+---
+
 ## Running with Docker (standalone)
 
 Build the image:
@@ -172,6 +212,7 @@ curl http://localhost:3000/healthz
 | `npm run seed enrich` | Enrich books with descriptions + ratings |
 | `npm run test` | Run integration tests (requires local Postgres) |
 | `npm run test:watch` | Run tests in watch mode |
+| `npm run worker` | Run the nightly background job scheduler |
 
 ## Testing
 

@@ -120,6 +120,7 @@ model User {
   xpEvents             XpEvent[]
   userBadges           UserBadge[]
   userChallenges       UserChallenge[]
+  createdChallenges    Challenge[]
   threads              Thread[]
   threadReplies        ThreadReply[]
   threadLikes          ThreadLike[]
@@ -171,8 +172,8 @@ model LibraryItem {
   userId      String            @map("user_id")
   bookId      String            @map("book_id")
   status      LibraryItemStatus
-  isCurrent   Boolean   @default(false) @map("is_current")
   progressPct Decimal   @default(0) @map("progress_pct") @db.Decimal(5, 2)
+  currentPage Int?      @map("current_page")
   timeLeftMin Int?      @map("time_left_min")
   addedAt     DateTime  @default(now()) @map("added_at")
   finishedAt  DateTime? @map("finished_at")
@@ -244,18 +245,23 @@ model UserBadge {
 }
 
 model Challenge {
-  id         String    @id @default(uuid())
-  slug       String    @unique
-  title      String
-  subtitle   String?
-  goal       String?
-  variant    String
-  target     Int
-  badgeId    String?   @map("badge_id")
-  activeFrom DateTime? @map("active_from") @db.Date
-  activeTo   DateTime? @map("active_to") @db.Date
+  id          String    @id @default(uuid())
+  slug        String    @unique
+  title       String
+  subtitle    String?
+  description String?
+  goal        String?
+  variant     String
+  metric      String    @default("books")
+  target      Int
+  creatorId   String?   @map("creator_id")
+  badgeId     String?   @map("badge_id")
+  activeFrom  DateTime? @map("active_from") @db.Date
+  activeTo    DateTime? @map("active_to") @db.Date
+  createdAt   DateTime  @default(now()) @map("created_at")
 
   badge          Badge?          @relation(fields: [badgeId], references: [id])
+  creator        User?           @relation(fields: [creatorId], references: [id])
   userChallenges UserChallenge[]
 
   @@map("challenges")
@@ -268,7 +274,7 @@ model UserChallenge {
   completedAt DateTime? @map("completed_at")
 
   user      User      @relation(fields: [userId], references: [id])
-  challenge Challenge @relation(fields: [challengeId], references: [id])
+  challenge Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
 
   @@id([userId, challengeId])
   @@map("user_challenges")

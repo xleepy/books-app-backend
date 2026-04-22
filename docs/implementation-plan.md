@@ -1,7 +1,7 @@
 # Implementation Plan — Books App Backend
 
-**Status:** IN PROGRESS — Phases 0–3, 5, and 6 complete. Phase 4 (collaborative signal) and 7 not started. One credential blocker before auth works end-to-end.
-**Last updated:** 2026-04-21
+**Status:** IN PROGRESS — Phases 0–3, 5, 6, and 13 complete. Phase 4 (collaborative signal) and 7 not started. One credential blocker before auth works end-to-end.
+**Last updated:** 2026-04-22
 **Supersedes:** `architecture-ideas.md` (research) + `review.md` (critique) once accepted.
 
 ---
@@ -41,7 +41,8 @@ Per `review.md`, these are the **actual** frontend types the backend schema must
 - `User` gains server-owned `createdAt`, `email`, removes `xpCurrent`/`xpRequired` from client state in favor of derived values
 - `User` gains `preferences` (see §3): `readingGoalMinutes`, `reminderTime`, `preferredGenres[]`, `notificationPrefs { push, weeklyDigest, challengeUpdates }`, `profileVisibility`
 - `Thread` gains `creatorId`, `createdAt`; `replies` becomes a count **and** a sibling `ThreadReply[]` resource
-- **New** `LibraryItem` fields: `progressPct`, `timeLeftMinutes`, `isCurrent` (replaces the frontend's separate `userSlice.currentBook`)
+- **New** `LibraryItem` fields: `progressPct`, `currentPage`, `timeLeftMinutes`, `isCurrent` (replaces the frontend's separate `userSlice.currentBook`)
+  - `currentPage` stores the last reported page number; backend auto-derives `progressPct` from `currentPage / book.pageCount` when provided in PATCH
 
 ---
 
@@ -103,6 +104,7 @@ library_items (
   status text CHECK (status IN ('want','reading','finished')),
   is_current      bool DEFAULT false,     -- one row per user may be true; enforced in app + partial unique index
   progress_pct    numeric(5,2) DEFAULT 0, -- 0.00–100.00
+  current_page    int,                    -- last reported page number; nullable until first progress update
   time_left_min   int,                    -- estimated minutes remaining, nullable
   added_at        timestamptz DEFAULT now(),
   finished_at     timestamptz
@@ -170,7 +172,8 @@ GET    /v1/books/:id/recommendations            → Book[]                (subje
 GET    /v1/library?status=<want|reading|finished> → LibraryItem[]
 GET    /v1/library/stats                        → { finished, reading, saved }
 POST   /v1/library                              → LibraryItem            body: { bookId, status }
-PATCH  /v1/library/:bookId                      → LibraryItem            body: { status?, progressPct?, timeLeftMin?, isCurrent? }
+PATCH  /v1/library/:bookId                      → LibraryItem            body: { status?, progressPct?, currentPage?, timeLeftMin?, isCurrent? }
+                                                  -- when currentPage is sent and book.pageCount > 0, progressPct is auto-derived
 DELETE /v1/library/:bookId
 GET    /v1/me/current-book                      → LibraryItem | null     (drives ReadingCard)
 
@@ -240,7 +243,7 @@ All mutating routes require `Authorization: Bearer <jwt>`. Feed endpoint is the 
 - ✅ `GET /books/feed` — cursor-paginated, excludes library books for authed users; personalized by library subject-frequency when user has ≥1 saved book; falls back to popularity sort for new users
 - ✅ `GET /books`, `GET /books/:id`, `GET /books/:id/recommendations`
 - ✅ `GET /books/:id/reviews`, `POST /books/:id/reviews`
-- ✅ `GET /library?status=<filter>`, `POST /library`, `PATCH /library/:bookId`, `DELETE /library/:bookId`, `GET /library/stats`
+- ✅ `GET /library?status=<filter>`, `POST /library`, `PATCH /library/:bookId` (accepts `currentPage`, derives `progressPct`), `DELETE /library/:bookId`, `GET /library/stats`
 - ✅ `GET /me`, `PATCH /me`, `GET /me/preferences`, `PUT /me/preferences`, `POST /me/password`, `GET /me/current-book`
 - ✅ `POST /auth/logout`
 - ✅ 19 routes verified via `/docs/json`; all auth-gated routes correctly return 401 without token
@@ -283,8 +286,28 @@ Decision update: a separate `POST /swipes` endpoint **was kept** to record pass/
 ### Phase 4 — Collaborative signal ⏳ not started (later)
 
 - Nightly job computes book-to-book co-liked matrix (just a materialized view for 5K books)
+  - Implemented as a standalone `worker` service in Docker Compose (gated by `profiles: ["worker"]`)
+  - Uses **croner** (lightweight, zero-dependency cron scheduler) to run at 03:00 daily with overrun protection
+  - `src/worker.ts` is the entry point; it shares the Prisma `db` singleton with the API
 - Blend into feed scoring (the weighted formula from research doc §4)
 - **Exit criteria:** offline precision@10 on held-out library items beats Phase 3
+
+**Worker architecture:**
+```
+docker-compose.yml
+  app      → Fastify API (always on)
+  worker   → Cron scheduler (started on demand via --profile worker)
+```
+
+Running locally:
+```bash
+npm run build && npm run worker
+```
+
+Running in Docker:
+```bash
+docker compose --profile worker up -d worker
+```
 
 ### Phase 5 — Gamification ✅ complete (2026-04-21)
 
@@ -324,6 +347,19 @@ Decision update: a separate `POST /swipes` endpoint **was kept** to record pass/
 - ✅ Frontend: `ThreadCard` — `onPress` prop added, author avatar + name shown at bottom, `coverUrl` is now `string | null`
 - ✅ Navigation: `ThreadDetail: { threadId }` + `CreateThread` added to `RootStackParamList` and registered in `RootNavigator`
 - **Exit criteria met:** create a thread + reply on a real device, filters work, likes persist
+
+### Phase 13 — Reading progress page-level update ✅ (2026-04-22)
+
+Frontend-only phase that adds a dedicated screen for updating reading progress by page number.
+
+- ✅ `prisma/schema.prisma` — added `currentPage Int? @map("current_page")` to `LibraryItem`
+- ✅ Migration `add_current_page_to_library_item` created and applied
+- ✅ `src/routes/library.ts` — `PATCH /library/:bookId` handler derives `progressPct` from `currentPage / book.pageCount` when `currentPage` is provided; clamps to `[0, pageCount]`
+- ✅ `src/lib/mappers.ts` — `toLibraryBook()` includes `currentPage`; `toBook()` includes `pageCount`
+- ✅ `src/schemas/index.ts` — `LibraryBookSchema` extended with `currentPage` and `pageCount`; PATCH body schema accepts `currentPage`
+- ✅ `tests/library.test.ts` — added 3 PATCH test cases: `currentPage` derives `progressPct`, clamping to `pageCount`, and explicit `progressPct` still works
+- ✅ Frontend API regenerated via `npm run codegen` (backend must be running)
+- ✅ Frontend: `ReadingDetailScreen` + `ReadingProgressForm` — separated data loading from presentation; direct page input + quick chips (`+10`, `+25`, `Finished`)
 
 ### Phase 7 — Nice-to-haves ⏳ not started
 

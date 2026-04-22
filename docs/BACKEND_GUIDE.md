@@ -210,6 +210,22 @@ All DB-to-API transformations live in `src/lib/mappers.ts`. These are **pure fun
 
 Never return raw Prisma objects from handlers — always go through a mapper.
 
+### Deriving fields in handlers
+
+When a request body contains a value that implies another field (e.g., `currentPage` implies `progressPct`), derive the dependent field in the handler before passing to Prisma:
+
+```typescript
+let resolvedProgressPct = progressPct;
+let resolvedCurrentPage = currentPage;
+const pageCount = existing.book.pageCount ?? 0;
+if (currentPage !== undefined && pageCount > 0) {
+  resolvedCurrentPage = Math.max(0, Math.min(pageCount, currentPage));
+  resolvedProgressPct = Math.round((resolvedCurrentPage / pageCount) * 100);
+}
+```
+
+This keeps the database as the source of truth while allowing clients to send the more natural `currentPage` value.
+
 ### Migrations
 
 ```bash
@@ -219,7 +235,7 @@ npm run db:migrate:deploy   # prod: applies pending migrations without prompting
 
 Docker entrypoint runs `npx prisma migrate deploy` before starting the app.
 
-**Migration naming**: Use descriptive names like `soft_delete_threads`, not `init` or `update`.
+**Migration naming**: Use descriptive names like `soft_delete_threads`, `add_current_page_to_library_item`, not `init` or `update`.
 
 ---
 

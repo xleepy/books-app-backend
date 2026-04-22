@@ -30,5 +30,17 @@ services:
       postgres:
         condition: service_healthy
 
+  worker:
+    build: .
+    restart: unless-stopped
+    profiles: ["worker"]
+    command: ["node", "dist/worker.js"]
+    environment:
+      DATABASE_URL: postgresql://booksapp:booksapp@postgres:5432/booksapp?schema=public
+      SUPABASE_JWT_SECRET: ${SUPABASE_JWT_SECRET}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 volumes:
   postgres_data:

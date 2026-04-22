@@ -253,8 +253,8 @@ export async function libraryRoute(app: FastifyInstance) {
         properties: {
           status: { type: "string", enum: ["want", "reading", "finished"] },
           progressPct: { type: "number", minimum: 0, maximum: 100 },
+          currentPage: { type: "integer", minimum: 0 },
           timeLeftMin: { type: "integer", minimum: 0, nullable: true },
-          isCurrent: { type: "boolean" },
         },
       },
       response: {
@@ -266,26 +266,28 @@ export async function libraryRoute(app: FastifyInstance) {
     preHandler: [app.authenticate],
     handler: async (request, reply) => {
       const { bookId } = request.params as { bookId: string };
-      const { status, progressPct, timeLeftMin, isCurrent } = request.body as {
+      const { status, progressPct, currentPage, timeLeftMin } = request.body as {
         status?: LibraryItemStatus;
         progressPct?: number;
+        currentPage?: number;
         timeLeftMin?: number | null;
-        isCurrent?: boolean;
       };
       const { sub, email, user_metadata } = request.user;
       const user = await getOrCreateUser(sub, email, user_metadata?.full_name ?? user_metadata?.name);
 
       const existing = await db.libraryItem.findUnique({
         where: { userId_bookId: { userId: user.id, bookId } },
+        include: { book: true },
       });
       if (!existing) return reply.notFound("Book not in library");
 
-      // Setting isCurrent=true requires unsetting all other current books first
-      if (isCurrent === true) {
-        await db.libraryItem.updateMany({
-          where: { userId: user.id, isCurrent: true },
-          data: { isCurrent: false },
-        });
+      // Derive progress from currentPage when provided
+      let resolvedProgressPct = progressPct;
+      let resolvedCurrentPage = currentPage;
+      const pageCount = existing.book.pageCount ?? 0;
+      if (currentPage !== undefined && pageCount > 0) {
+        resolvedCurrentPage = Math.max(0, Math.min(pageCount, currentPage));
+        resolvedProgressPct = Math.round((resolvedCurrentPage / pageCount) * 100);
       }
 
       const finishedAt =
@@ -295,9 +297,9 @@ export async function libraryRoute(app: FastifyInstance) {
         where: { userId_bookId: { userId: user.id, bookId } },
         data: {
           ...(status !== undefined && { status }),
-          ...(progressPct !== undefined && { progressPct }),
+          ...(resolvedProgressPct !== undefined && { progressPct: resolvedProgressPct }),
+          ...(resolvedCurrentPage !== undefined && { currentPage: resolvedCurrentPage }),
           ...(timeLeftMin !== undefined && { timeLeftMin }),
-          ...(isCurrent !== undefined && { isCurrent }),
           ...(finishedAt && { finishedAt }),
         },
         include: { book: { include: bookInclude } },

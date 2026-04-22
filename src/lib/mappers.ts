@@ -21,6 +21,7 @@ export function toBook(b: BookWithSubjects) {
     description: b.description ?? "",
     rating: b.ratingAvg ? Number(b.ratingAvg) : 0,
     reviewCount: b.ratingCount ?? 0,
+    pageCount: b.pageCount ?? null,
   };
 }
 
@@ -39,8 +40,8 @@ export function toLibraryBook(item: LibraryItemWithBook) {
   return {
     ...toBook(item.book),
     status: item.status,
-    isCurrent: item.isCurrent,
     progressPct: Number(item.progressPct),
+    currentPage: item.currentPage ?? null,
     timeLeftMin: item.timeLeftMin ?? null,
   };
 }
@@ -208,18 +209,52 @@ export function toUserBadge(ub: UserBadgeWithBadge) {
 
 // ─── Challenge mapper ──────────────────────────────────────────────────────────
 
-type ChallengeWithBadge = Challenge & { badge: { name: string } | null };
+type ChallengeWithBadge = Challenge & { badge: { name: string } | null; creator: { name: string } | null };
 
-export function toChallenge(c: ChallengeWithBadge, current: number) {
+export function toChallenge(
+  c: ChallengeWithBadge,
+  current: number,
+  isJoined: boolean,
+  isCreator: boolean,
+  participantCount: number,
+) {
+  const today = new Date();
+  const activeFrom = c.activeFrom;
+  const activeTo = c.activeTo;
+
+  let badgeText: string | null = null;
+  if (activeFrom && activeTo) {
+    if (today < activeFrom) {
+      const days = Math.ceil((activeFrom.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      badgeText = `Starts in ${days} days`;
+    } else if (today > activeTo) {
+      badgeText = "Ended";
+    } else {
+      const daysLeft = Math.ceil((activeTo.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      badgeText = `${daysLeft} days left`;
+    }
+  }
+
   return {
     id: c.id,
+    slug: c.slug,
     title: c.title,
     subtitle: c.subtitle ?? "",
+    description: c.description ?? null,
     goal: c.goal ?? "",
-    current,
+    variant: c.variant,
+    metric: c.metric,
     target: c.target,
-    badgeText: c.badge?.name ?? "",
-    variant: c.variant as "monthly" | "yearly",
+    creatorId: c.creatorId,
+    creatorName: c.creator?.name ?? null,
+    participantCount,
+    badgeId: c.badgeId,
+    badgeText,
+    activeFrom: c.activeFrom?.toISOString().split("T")[0] ?? null,
+    activeTo: c.activeTo?.toISOString().split("T")[0] ?? null,
+    current,
+    isJoined,
+    isCreator,
   };
 }
 

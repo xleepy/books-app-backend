@@ -17,6 +17,7 @@ beforeAll(async () => {
       openLibraryId: "OL_TEST_LIBRARY_1",
       title: "Integration Test Book",
       author: "Test Author",
+      pageCount: 300,
     },
   });
   bookId = book.id;
@@ -57,7 +58,6 @@ describe("POST /library", () => {
       title: "Integration Test Book",
       author: "Test Author",
       status: "want",
-      isCurrent: false,
       progressPct: 0,
       timeLeftMin: null,
     });
@@ -125,5 +125,82 @@ describe("POST /library", () => {
     });
 
     expect(res.statusCode).toBe(400);
+  });
+});
+
+describe("PATCH /library/:bookId", () => {
+  test("200 — updates currentPage and derives progressPct", async () => {
+    await app.inject({
+      method: "POST",
+      url: "/library",
+      payload: { bookId, status: "reading" },
+    });
+
+    const res = await app.inject({
+      method: "PATCH",
+      url: `/library/${bookId}`,
+      payload: { currentPage: 150 },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.currentPage).toBe(150);
+    expect(body.progressPct).toBe(50);
+    expect(body.pageCount).toBe(300);
+  });
+
+  test("200 — clamps currentPage to pageCount", async () => {
+    await app.inject({
+      method: "POST",
+      url: "/library",
+      payload: { bookId, status: "reading" },
+    });
+
+    const res = await app.inject({
+      method: "PATCH",
+      url: `/library/${bookId}`,
+      payload: { currentPage: 999 },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.currentPage).toBe(300);
+    expect(body.progressPct).toBe(100);
+  });
+
+  test("200 — explicit progressPct still works", async () => {
+    await app.inject({
+      method: "POST",
+      url: "/library",
+      payload: { bookId, status: "reading" },
+    });
+
+    const res = await app.inject({
+      method: "PATCH",
+      url: `/library/${bookId}`,
+      payload: { progressPct: 75 },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.progressPct).toBe(75);
+  });
+
+  test("200 — marking finished sets status and finishedAt", async () => {
+    await app.inject({
+      method: "POST",
+      url: "/library",
+      payload: { bookId, status: "reading" },
+    });
+
+    const res = await app.inject({
+      method: "PATCH",
+      url: `/library/${bookId}`,
+      payload: { status: "finished" },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.status).toBe("finished");
   });
 });

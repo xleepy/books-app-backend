@@ -11,6 +11,7 @@ export const BookSchema = {
     description: { type: "string" },
     rating: { type: "number", minimum: 0, maximum: 5 },
     reviewCount: { type: "integer" },
+    pageCount: { type: "integer", nullable: true },
   },
 } as const;
 
@@ -86,16 +87,43 @@ export const ThreadDetailSchema = {
 export const ChallengeSchema = {
   $id: "Challenge",
   type: "object",
-  required: ["id", "title", "subtitle", "goal", "current", "target", "badgeText", "variant"],
+  required: ["id", "slug", "title", "variant", "metric", "target", "participantCount", "isJoined", "isCreator"],
   properties: {
     id: { type: "string" },
+    slug: { type: "string" },
     title: { type: "string" },
-    subtitle: { type: "string" },
-    goal: { type: "string" },
-    current: { type: "integer" },
+    subtitle: { type: "string", nullable: true },
+    description: { type: "string", nullable: true },
+    goal: { type: "string", nullable: true },
+    variant: { type: "string" },
+    metric: { type: "string" },
     target: { type: "integer" },
-    badgeText: { type: "string" },
-    variant: { type: "string", enum: ["monthly", "yearly"] },
+    creatorId: { type: "string", nullable: true },
+    creatorName: { type: "string", nullable: true },
+    participantCount: { type: "integer" },
+    badgeId: { type: "string", nullable: true },
+    badgeText: { type: "string", nullable: true },
+    activeFrom: { type: "string", format: "date", nullable: true },
+    activeTo: { type: "string", format: "date", nullable: true },
+    current: { type: "integer" },
+    isJoined: { type: "boolean" },
+    isCreator: { type: "boolean" },
+  },
+} as const;
+
+export const CreateChallengeBodySchema = {
+  $id: "CreateChallengeBody",
+  type: "object",
+  required: ["title", "variant", "metric", "target", "activeFrom", "activeTo"],
+  properties: {
+    title: { type: "string", minLength: 1, maxLength: 80 },
+    description: { type: "string", maxLength: 500 },
+    variant: { type: "string", enum: ["monthly", "yearly", "weekly", "custom"] },
+    metric: { type: "string", enum: ["books", "pages", "hours", "streak"] },
+    target: { type: "integer", minimum: 1, maximum: 9999 },
+    activeFrom: { type: "string", format: "date" },
+    activeTo: { type: "string", format: "date" },
+    badgeId: { type: "string" },
   },
 } as const;
 
@@ -119,7 +147,7 @@ export const LeaderboardEntrySchema = {
 export const LibraryBookSchema = {
   $id: "LibraryBook",
   type: "object",
-  required: ["id", "title", "author", "tags", "description", "rating", "reviewCount", "status", "progressPct", "isCurrent"],
+  required: ["id", "title", "author", "tags", "description", "rating", "reviewCount", "status", "progressPct"],
   properties: {
     id: { type: "string" },
     title: { type: "string" },
@@ -130,8 +158,9 @@ export const LibraryBookSchema = {
     rating: { type: "number", minimum: 0, maximum: 5 },
     reviewCount: { type: "integer" },
     status: { type: "string", enum: ["want", "reading", "finished"] },
-    isCurrent: { type: "boolean" },
     progressPct: { type: "number", minimum: 0, maximum: 100 },
+    currentPage: { type: "integer", nullable: true },
+    pageCount: { type: "integer", nullable: true },
     timeLeftMin: { type: "integer", nullable: true },
   },
 } as const;
@@ -245,6 +274,7 @@ export const allSchemas = [
   ThreadReplySchema,
   ThreadDetailSchema,
   ChallengeSchema,
+  CreateChallengeBodySchema,
   LeaderboardEntrySchema,
   UserBadgeSchema,
   PaginationSchema,
