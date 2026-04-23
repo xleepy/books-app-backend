@@ -21,6 +21,7 @@ Fastify 5.x + TypeScript backend with Prisma 7 ORM and PostgreSQL. JWT auth via 
 Read the Backend Guide before making changes to:
 - **Database schema** → Prisma conventions, migrations, indexes
 - **API routes** → Fastify route structure, schema validation, auth
+- **Services** → Business logic separation, domain errors
 - **Response shapes** → Mappers, shared JSON Schemas
 - **Tests** → Integration test patterns with `app.inject()`
 
@@ -50,11 +51,14 @@ src/
 ├── lib/
 │   ├── db.ts           # PrismaClient singleton
 │   ├── mappers.ts      # DB → API response transformers
+│   ├── errors.ts       # Domain error classes (NotFoundError, ConflictError, ...)
+│   ├── includes.ts     # Shared Prisma include fragments
 │   ├── getOrCreateUser.ts
 │   ├── xp.ts           # XP/level calculations
 │   ├── badges.ts       # Badge award logic
 │   └── sanitize.ts     # HTML sanitization
-├── routes/             # One file per domain (library.ts, books.ts, etc.)
+├── routes/             # One file per domain — thin HTTP adapters
+├── services/           # Business logic per domain — pure functions, no HTTP
 ├── schemas/index.ts    # Shared JSON Schemas ($ref definitions)
 └── types/fastify.d.ts  # JWT type augmentation
 ```
@@ -65,13 +69,15 @@ src/
 
 1. **Never edit generated files manually.** Files in `src/generated/prisma/` (Prisma client) or any file with a `.generated.` suffix are produced by codegen tools. Always regenerate them via the appropriate command (`npm run db:generate`, `npx prisma generate`, etc.). Manual edits will be lost on the next regeneration and can introduce type mismatches.
 2. **Prisma schema**: `snake_case` columns via `@map()`, `@@map()` for tables, UUID IDs, explicit relations
-3. **Always use mappers** — never return raw Prisma objects from handlers
-4. **Define JSON Schemas** for all route request/response shapes; register in `allSchemas`
-5. **Use `@fastify/sensible` helpers** (`reply.notFound()`, `reply.conflict()`) — don't throw
-6. **Wrap multi-step ops** in `db.$transaction()` for consistency
-7. **Run `Promise.all([count, findMany])`** for pagination
-8. **Sanitize user input** with `sanitizeHtml()` before storing
-9. **If your change touches logic covered by integration tests, review and run those tests.** Before finishing, inspect the relevant test file(s) in `tests/` to ensure your changes don't break existing assertions or data setup/teardown, and run `npm run test` to confirm everything passes.
+3. **Routes are thin HTTP adapters** — extract business logic into `src/services/<domain>.ts`. Handlers validate input, call services, and map errors to replies.
+4. **Always use mappers** — never return raw Prisma objects from handlers or services
+5. **Define JSON Schemas** for all route request/response shapes; register in `allSchemas`
+6. **Use shared schemas** via `$ref` for reusable shapes (common params, querystrings, response wrappers). Register them in `src/schemas/index.ts` and add to `allSchemas`. Keep route-specific request schemas inline.
+7. **Use domain errors in services** (`NotFoundError`, `ConflictError`, `ForbiddenError`, `BadRequestError`). Routes catch them via `handleServiceError(reply, err)` and translate to `@fastify/sensible` helpers.
+8. **Wrap multi-step ops** in `db.$transaction()` for consistency
+9. **Run `Promise.all([count, findMany])`** for pagination
+10. **Sanitize user input** with `sanitizeHtml()` before storing
+11. **If your change touches logic covered by integration tests, review and run those tests.** Before finishing, inspect the relevant test file(s) in `tests/` to ensure your changes don't break existing assertions or data setup/teardown, and run `npm run test` to confirm everything passes.
 
 ---
 
@@ -80,9 +86,10 @@ src/
 1. Edit `prisma/schema.prisma`
 2. Run `npm run db:migrate` (creates migration + applies + regenerates client)
 3. Update mapper in `src/lib/mappers.ts` if response shape changed
-4. Update/add JSON Schema in `src/schemas/index.ts`
-5. **Regenerate frontend API**: Ensure backend is running, then `cd ../books-app && npm run codegen`
-6. Add/update integration tests in `tests/`
+4. Update/add service in `src/services/` if business logic changed
+5. Update/add JSON Schema in `src/schemas/index.ts`
+6. **Regenerate frontend API**: Ensure backend is running, then `cd ../books-app && npm run codegen`
+7. Add/update integration tests in `tests/`
 
 ---
 

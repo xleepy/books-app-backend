@@ -1,9 +1,93 @@
-import type { FastifyInstance } from "fastify";
-import { db } from "../lib/db";
-import { toLibraryBook, toUserProfile, toPreferences, toUserBadge } from "../lib/mappers";
-import { getOrCreateUser } from "../lib/getOrCreateUser";
+import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
+import { resolveUser } from "../lib/getOrCreateUser";
+import { handleServiceError } from "../lib/errors";
+import * as meService from "../services/me";
 
-const bookInclude = { bookSubjects: { include: { subject: true } } } as const;
+/* ─── Type interfaces ─── */
+
+interface PatchMeBody {
+  name?: string;
+  avatarHue?: number;
+  readingGoal?: number;
+}
+
+interface PreferencesBody {
+  readingGoalMinutes: number;
+  reminderTime?: string | null;
+  reminderEnabled: boolean;
+  preferredGenres: string[];
+  notifyPush: boolean;
+  notifyWeeklyDigest: boolean;
+  notifyChallenge: boolean;
+  profileVisibility: string;
+}
+
+/* ─── Route handlers ─── */
+
+async function getMeHandler(request: FastifyRequest, reply: FastifyReply) {
+  const user = await resolveUser(request);
+  const result = await meService.getProfile(user);
+  return reply.send(result);
+}
+
+async function patchMeHandler(request: FastifyRequest, reply: FastifyReply) {
+  const user = await resolveUser(request);
+  const { name, avatarHue, readingGoal } = request.body as PatchMeBody;
+  try {
+    const result = await meService.updateProfile(user.id, name, avatarHue, readingGoal);
+    return reply.send(result);
+  } catch (err) {
+    return handleServiceError(reply, err);
+  }
+}
+
+async function getPreferencesHandler(request: FastifyRequest, reply: FastifyReply) {
+  const user = await resolveUser(request);
+  try {
+    const result = await meService.getPreferences(user.id);
+    return reply.send(result);
+  } catch (err) {
+    return handleServiceError(reply, err);
+  }
+}
+
+async function putPreferencesHandler(request: FastifyRequest, reply: FastifyReply) {
+  const user = await resolveUser(request);
+  const body = request.body as PreferencesBody;
+  try {
+    const result = await meService.updatePreferences(user.id, body);
+    return reply.send(result);
+  } catch (err) {
+    return handleServiceError(reply, err);
+  }
+}
+
+async function changePasswordHandler(_request: FastifyRequest, reply: FastifyReply) {
+  return reply.notImplemented();
+}
+
+async function getBadgesHandler(request: FastifyRequest, reply: FastifyReply) {
+  const user = await resolveUser(request);
+  try {
+    const result = await meService.getBadges(user.id);
+    return reply.send(result);
+  } catch (err) {
+    return handleServiceError(reply, err);
+  }
+}
+
+async function getCurrentBookHandler(request: FastifyRequest, reply: FastifyReply) {
+  const user = await resolveUser(request);
+  try {
+    const result = await meService.getCurrentBook(user.id);
+    if (!result) return reply.code(204).send();
+    return reply.send(result);
+  } catch (err) {
+    return handleServiceError(reply, err);
+  }
+}
+
+/* ─── Route registration ─── */
 
 export async function meRoute(app: FastifyInstance) {
   app.get("/me", {
@@ -17,11 +101,7 @@ export async function meRoute(app: FastifyInstance) {
       },
     },
     preHandler: [app.authenticate],
-    handler: async (request, reply) => {
-      const { sub, email, user_metadata } = request.user;
-      const user = await getOrCreateUser(sub, email, user_metadata?.full_name ?? user_metadata?.name);
-      return reply.send(toUserProfile(user));
-    },
+    handler: getMeHandler,
   });
 
   app.patch("/me", {
@@ -43,26 +123,7 @@ export async function meRoute(app: FastifyInstance) {
       },
     },
     preHandler: [app.authenticate],
-    handler: async (request, reply) => {
-      const { sub, email, user_metadata } = request.user;
-      const user = await getOrCreateUser(sub, email, user_metadata?.full_name ?? user_metadata?.name);
-      const { name, avatarHue, readingGoal } = request.body as {
-        name?: string;
-        avatarHue?: number;
-        readingGoal?: number;
-      };
-
-      const updated = await db.user.update({
-        where: { id: user.id },
-        data: {
-          ...(name !== undefined && { name }),
-          ...(avatarHue !== undefined && { avatarHue }),
-          ...(readingGoal !== undefined && { readingGoal }),
-        },
-      });
-
-      return reply.send(toUserProfile(updated));
-    },
+    handler: patchMeHandler,
   });
 
   app.get("/me/preferences", {
@@ -76,17 +137,7 @@ export async function meRoute(app: FastifyInstance) {
       },
     },
     preHandler: [app.authenticate],
-    handler: async (request, reply) => {
-      const { sub, email, user_metadata } = request.user;
-      const user = await getOrCreateUser(sub, email, user_metadata?.full_name ?? user_metadata?.name);
-
-      let prefs = await db.userPreferences.findUnique({ where: { userId: user.id } });
-      if (!prefs) {
-        prefs = await db.userPreferences.create({ data: { userId: user.id } });
-      }
-
-      return reply.send(toPreferences(prefs));
-    },
+    handler: getPreferencesHandler,
   });
 
   app.put("/me/preferences", {
@@ -101,28 +152,7 @@ export async function meRoute(app: FastifyInstance) {
       },
     },
     preHandler: [app.authenticate],
-    handler: async (request, reply) => {
-      const { sub, email, user_metadata } = request.user;
-      const user = await getOrCreateUser(sub, email, user_metadata?.full_name ?? user_metadata?.name);
-      const body = request.body as {
-        readingGoalMinutes: number;
-        reminderTime?: string | null;
-        reminderEnabled: boolean;
-        preferredGenres: string[];
-        notifyPush: boolean;
-        notifyWeeklyDigest: boolean;
-        notifyChallenge: boolean;
-        profileVisibility: string;
-      };
-
-      const prefs = await db.userPreferences.upsert({
-        where: { userId: user.id },
-        create: { userId: user.id, ...body },
-        update: body,
-      });
-
-      return reply.send(toPreferences(prefs));
-    },
+    handler: putPreferencesHandler,
   });
 
   app.post("/me/password", {
@@ -148,7 +178,7 @@ export async function meRoute(app: FastifyInstance) {
       },
     },
     preHandler: [app.authenticate],
-    handler: async (_req, reply) => reply.notImplemented(),
+    handler: changePasswordHandler,
   });
 
   app.get("/me/badges", {
@@ -157,35 +187,12 @@ export async function meRoute(app: FastifyInstance) {
       summary: "Get authenticated user's earned badges",
       security: [{ bearerAuth: [] }],
       response: {
-        200: {
-          type: "object",
-          required: ["data"],
-          properties: {
-            data: { type: "array", items: { $ref: "UserBadge" } },
-          },
-        },
+        200: { $ref: "UserBadgeList" },
         401: { $ref: "ApiError" },
       },
     },
     preHandler: [app.authenticate],
-    handler: async (request, reply) => {
-      const { sub, email, user_metadata } = request.user;
-      const user = await getOrCreateUser(
-        sub,
-        email,
-        user_metadata?.full_name ?? user_metadata?.name
-      );
-
-      const badges = await db.userBadge.findMany({
-        where: { userId: user.id },
-        include: { badge: true },
-        orderBy: { awardedAt: "desc" },
-      });
-
-      return reply.send({
-        data: badges.map(toUserBadge),
-      });
-    },
+    handler: getBadgesHandler,
   });
 
   app.get("/me/current-book", {
@@ -200,17 +207,6 @@ export async function meRoute(app: FastifyInstance) {
       },
     },
     preHandler: [app.authenticate],
-    handler: async (request, reply) => {
-      const { sub, email, user_metadata } = request.user;
-      const user = await getOrCreateUser(sub, email, user_metadata?.full_name ?? user_metadata?.name);
-
-      const item = await db.libraryItem.findFirst({
-        where: { userId: user.id, isCurrent: true },
-        include: { book: { include: bookInclude } },
-      });
-
-      if (!item) return reply.code(204).send();
-      return reply.send(toLibraryBook(item));
-    },
+    handler: getCurrentBookHandler,
   });
 }

@@ -1,5 +1,6 @@
 import { db } from "./db";
 import type { User } from "../generated/prisma/client";
+import type { FastifyRequest } from "fastify";
 
 export async function getOrCreateUser(
   authId: string,
@@ -17,4 +18,9 @@ export async function getOrCreateUser(
       preferences: { create: {} },
     },
   });
+}
+
+export async function resolveUser(request: FastifyRequest): Promise<User> {
+  const { sub, email, user_metadata } = request.user;
+  return getOrCreateUser(sub, email, user_metadata?.full_name ?? user_metadata?.name);
 }

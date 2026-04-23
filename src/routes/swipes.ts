@@ -1,6 +1,29 @@
-import type { FastifyInstance } from "fastify";
-import { db } from "../lib/db";
-import { getOrCreateUser } from "../lib/getOrCreateUser";
+import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
+import { resolveUser } from "../lib/getOrCreateUser";
+import { handleServiceError } from "../lib/errors";
+import * as swipesService from "../services/swipes";
+
+/* ─── Type interfaces ─── */
+
+interface SwipeBody {
+  bookId: string;
+  direction: "left" | "right";
+}
+
+/* ─── Route handlers ─── */
+
+async function recordSwipeHandler(request: FastifyRequest, reply: FastifyReply) {
+  const { bookId, direction } = request.body as SwipeBody;
+  const user = await resolveUser(request);
+  try {
+    await swipesService.recordSwipe(user.id, bookId, direction);
+    return reply.code(204).send();
+  } catch (err) {
+    return handleServiceError(reply, err);
+  }
+}
+
+/* ─── Route registration ─── */
 
 export async function swipesRoute(app: FastifyInstance) {
   app.post("/swipes", {
@@ -23,22 +46,6 @@ export async function swipesRoute(app: FastifyInstance) {
       },
     },
     preHandler: [app.authenticate],
-    handler: async (request, reply) => {
-      const { sub, email, user_metadata } = request.user;
-      const { bookId, direction } = request.body as { bookId: string; direction: "left" | "right" };
-
-      const user = await getOrCreateUser(sub, email, user_metadata?.full_name ?? user_metadata?.name);
-
-      const book = await db.book.findUnique({ where: { id: bookId }, select: { id: true } });
-      if (!book) return reply.notFound("Book not found");
-
-      await db.swipe.upsert({
-        where: { userId_bookId: { userId: user.id, bookId } },
-        create: { userId: user.id, bookId, direction },
-        update: { direction },
-      });
-
-      return reply.code(204).send();
-    },
+    handler: recordSwipeHandler,
   });
 }

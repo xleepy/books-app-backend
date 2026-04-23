@@ -1,4 +1,12 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
+
+/* ─── Route handlers ─── */
+
+async function logoutHandler(_request: FastifyRequest, reply: FastifyReply) {
+  return reply.send({ ok: true });
+}
+
+/* ─── Route registration ─── */
 
 export async function authRoute(app: FastifyInstance) {
   // Registration and login are handled entirely by Supabase on the client side.
@@ -19,6 +27,6 @@ export async function authRoute(app: FastifyInstance) {
       },
     },
     preHandler: [app.authenticate],
-    handler: async (_req, reply) => reply.send({ ok: true }),
+    handler: logoutHandler,
   });
 }

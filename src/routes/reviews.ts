@@ -1,63 +1,55 @@
-import type { FastifyInstance } from "fastify";
-import { db } from "../lib/db";
-import { toReview } from "../lib/mappers";
-import { getOrCreateUser } from "../lib/getOrCreateUser";
-import { sanitizeHtml } from "../lib/sanitize";
-import { awardXp, XP_VALUES } from "../lib/xp";
-import { checkAndAwardBadges } from "../lib/badges";
+import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
+import { resolveUser } from "../lib/getOrCreateUser";
+import { handleServiceError } from "../lib/errors";
+import * as reviewsService from "../services/reviews";
+
+/* ─── Type interfaces ─── */
+
+interface CreateReviewBody {
+  rating: number;
+  text: string;
+}
+
+/* ─── Route handlers ─── */
+
+async function listReviewsHandler(request: FastifyRequest, reply: FastifyReply) {
+  const { id } = request.params as { id: string };
+  const { page = 1, limit = 20 } = request.query as { page?: number; limit?: number };
+  try {
+    const result = await reviewsService.listReviews(id, page, limit);
+    return reply.send(result);
+  } catch (err) {
+    return handleServiceError(reply, err);
+  }
+}
+
+async function createReviewHandler(request: FastifyRequest, reply: FastifyReply) {
+  const { id: bookId } = request.params as { id: string };
+  const { rating, text } = request.body as CreateReviewBody;
+  const user = await resolveUser(request);
+  try {
+    const result = await reviewsService.createReview(user.id, bookId, rating, text);
+    return reply.code(201).send(result);
+  } catch (err) {
+    return handleServiceError(reply, err);
+  }
+}
+
+/* ─── Route registration ─── */
 
 export async function reviewsRoute(app: FastifyInstance) {
   app.get("/books/:id/reviews", {
     schema: {
       tags: ["reviews"],
       summary: "List reviews for a book",
-      params: {
-        type: "object",
-        required: ["id"],
-        properties: { id: { type: "string" } },
-      },
-      querystring: {
-        type: "object",
-        properties: {
-          page: { type: "integer", minimum: 1, default: 1 },
-          limit: { type: "integer", minimum: 1, maximum: 50, default: 20 },
-        },
-      },
+      params: { $ref: "IdParam" },
+      querystring: { $ref: "PaginationQuery" },
       response: {
-        200: {
-          type: "object",
-          required: ["data", "pagination"],
-          properties: {
-            data: { type: "array", items: { $ref: "Review" } },
-            pagination: { $ref: "Pagination" },
-          },
-        },
+        200: { $ref: "PaginatedReviews" },
         404: { $ref: "ApiError" },
       },
     },
-    handler: async (request, reply) => {
-      const { id } = request.params as { id: string };
-      const { page = 1, limit = 20 } = request.query as { page?: number; limit?: number };
-
-      const book = await db.book.findUnique({ where: { id } });
-      if (!book) return reply.notFound("Book not found");
-
-      const [total, rows] = await Promise.all([
-        db.review.count({ where: { bookId: id } }),
-        db.review.findMany({
-          where: { bookId: id },
-          orderBy: { createdAt: "desc" },
-          skip: (page - 1) * limit,
-          take: limit,
-          include: { user: true },
-        }),
-      ]);
-
-      return reply.send({
-        data: rows.map(toReview),
-        pagination: { total, page, limit },
-      });
-    },
+    handler: listReviewsHandler,
   });
 
   app.post("/books/:id/reviews", {
@@ -65,11 +57,7 @@ export async function reviewsRoute(app: FastifyInstance) {
       tags: ["reviews"],
       summary: "Submit a review for a book",
       security: [{ bearerAuth: [] }],
-      params: {
-        type: "object",
-        required: ["id"],
-        properties: { id: { type: "string" } },
-      },
+      params: { $ref: "IdParam" },
       body: {
         type: "object",
         required: ["rating", "text"],
@@ -86,31 +74,6 @@ export async function reviewsRoute(app: FastifyInstance) {
       },
     },
     preHandler: [app.authenticate],
-    handler: async (request, reply) => {
-      const { id: bookId } = request.params as { id: string };
-      const { rating, text } = request.body as { rating: number; text: string };
-      const { sub, email, user_metadata } = request.user;
-
-      const book = await db.book.findUnique({ where: { id: bookId } });
-      if (!book) return reply.notFound("Book not found");
-
-      const user = await getOrCreateUser(sub, email, user_metadata?.full_name ?? user_metadata?.name);
-
-      const existing = await db.review.findFirst({ where: { bookId, userId: user.id } });
-      if (existing) return reply.conflict("You have already reviewed this book");
-
-      const sanitizedText = sanitizeHtml(text);
-
-      const review = await db.review.create({
-        data: { bookId, userId: user.id, rating, text: sanitizedText },
-        include: { user: true },
-      });
-
-      // Award XP + check badges for writing a review (fire-and-forget; errors are non-fatal)
-      await awardXp(user.id, "review", XP_VALUES.review, { bookId });
-      await checkAndAwardBadges(user.id, "review_written");
-
-      return reply.code(201).send(toReview(review));
-    },
+    handler: createReviewHandler,
   });
 }

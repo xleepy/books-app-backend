@@ -1,4 +1,4 @@
-import { buildApp } from "./src/app";
+import { buildApp } from "../src/app";
 import fs from "fs";
 
 const app = buildApp({ testUser: { sub: "test", email: "test@test.com" } });

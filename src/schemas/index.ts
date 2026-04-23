@@ -220,6 +220,81 @@ export const PreferencesSchema = {
   },
 } as const;
 
+/* ─── Common request schemas ─── */
+
+export const IdParamSchema = {
+  $id: "IdParam",
+  type: "object",
+  required: ["id"],
+  properties: {
+    id: { type: "string" },
+  },
+} as const;
+
+export const BookIdParamSchema = {
+  $id: "BookIdParam",
+  type: "object",
+  required: ["bookId"],
+  properties: {
+    bookId: { type: "string" },
+  },
+} as const;
+
+export const LimitQuerySchema = {
+  $id: "LimitQuery",
+  type: "object",
+  properties: {
+    limit: { type: "integer", minimum: 1, maximum: 100, default: 20 },
+  },
+} as const;
+
+export const PaginationQuerySchema = {
+  $id: "PaginationQuery",
+  type: "object",
+  properties: {
+    page: { type: "integer", minimum: 1, default: 1 },
+    limit: { type: "integer", minimum: 1, maximum: 100, default: 20 },
+  },
+} as const;
+
+export const CursorQuerySchema = {
+  $id: "CursorQuery",
+  type: "object",
+  properties: {
+    cursor: { type: "string", description: "Opaque pagination cursor" },
+    limit: { type: "integer", minimum: 1, maximum: 50, default: 20 },
+  },
+} as const;
+
+export const ThreadFilterQuerySchema = {
+  $id: "ThreadFilterQuery",
+  type: "object",
+  properties: {
+    filter: {
+      type: "string",
+      enum: ["all", "popular", "recent", "mine"],
+      default: "recent",
+    },
+    search: { type: "string" },
+    page: { type: "integer", minimum: 1, default: 1 },
+    limit: { type: "integer", minimum: 1, maximum: 50, default: 20 },
+  },
+} as const;
+
+export const ChallengeFilterQuerySchema = {
+  $id: "ChallengeFilterQuery",
+  type: "object",
+  properties: {
+    filter: {
+      type: "string",
+      enum: ["active", "monthly", "yearly", "weekly", "custom"],
+      default: "active",
+    },
+  },
+} as const;
+
+/* ─── Pagination ─── */
+
 export const PaginationSchema = {
   $id: "Pagination",
   type: "object",
@@ -228,6 +303,117 @@ export const PaginationSchema = {
     total: { type: "integer" },
     page: { type: "integer" },
     limit: { type: "integer" },
+  },
+} as const;
+
+/* ─── Response wrappers ─── */
+
+export const PaginatedBooksSchema = {
+  $id: "PaginatedBooks",
+  type: "object",
+  required: ["data", "pagination"],
+  properties: {
+    data: { type: "array", items: { $ref: "Book" } },
+    pagination: { $ref: "Pagination" },
+  },
+} as const;
+
+export const BookListSchema = {
+  $id: "BookList",
+  type: "object",
+  required: ["data"],
+  properties: {
+    data: { type: "array", items: { $ref: "Book" } },
+    nextCursor: { type: "string", nullable: true },
+  },
+} as const;
+
+export const PaginatedReviewsSchema = {
+  $id: "PaginatedReviews",
+  type: "object",
+  required: ["data", "pagination"],
+  properties: {
+    data: { type: "array", items: { $ref: "Review" } },
+    pagination: { $ref: "Pagination" },
+  },
+} as const;
+
+export const PaginatedThreadsSchema = {
+  $id: "PaginatedThreads",
+  type: "object",
+  required: ["data", "pagination"],
+  properties: {
+    data: { type: "array", items: { $ref: "Thread" } },
+    pagination: { $ref: "Pagination" },
+  },
+} as const;
+
+export const PaginatedLibraryBooksSchema = {
+  $id: "PaginatedLibraryBooks",
+  type: "object",
+  required: ["data", "pagination"],
+  properties: {
+    data: { type: "array", items: { $ref: "LibraryBook" } },
+    pagination: { $ref: "Pagination" },
+  },
+} as const;
+
+export const ChallengeDetailSchema = {
+  $id: "ChallengeDetail",
+  type: "object",
+  required: ["data"],
+  properties: {
+    data: { $ref: "Challenge" },
+  },
+} as const;
+
+export const ChallengeListSchema = {
+  $id: "ChallengeList",
+  type: "object",
+  required: ["data"],
+  properties: {
+    data: { type: "array", items: { $ref: "Challenge" } },
+  },
+} as const;
+
+export const ChallengeProgressSchema = {
+  $id: "ChallengeProgress",
+  type: "object",
+  required: ["challengeId", "current", "target", "completed"],
+  properties: {
+    challengeId: { type: "string" },
+    current: { type: "integer" },
+    target: { type: "integer" },
+    completed: { type: "boolean" },
+    completedAt: { type: "string", nullable: true },
+  },
+} as const;
+
+export const LeaderboardListSchema = {
+  $id: "LeaderboardList",
+  type: "object",
+  required: ["data"],
+  properties: {
+    data: { type: "array", items: { $ref: "LeaderboardEntry" } },
+  },
+} as const;
+
+export const UserBadgeListSchema = {
+  $id: "UserBadgeList",
+  type: "object",
+  required: ["data"],
+  properties: {
+    data: { type: "array", items: { $ref: "UserBadge" } },
+  },
+} as const;
+
+export const LikeResultSchema = {
+  $id: "LikeResult",
+  type: "object",
+  required: ["liked", "likes"],
+  properties: {
+    liked: { type: "boolean" },
+    likes: { type: "integer" },
   },
 } as const;
 
@@ -280,4 +466,24 @@ export const allSchemas = [
   PaginationSchema,
   ErrorSchema,
   AuthTokensSchema,
+  // Common request schemas
+  IdParamSchema,
+  BookIdParamSchema,
+  LimitQuerySchema,
+  PaginationQuerySchema,
+  CursorQuerySchema,
+  ThreadFilterQuerySchema,
+  ChallengeFilterQuerySchema,
+  // Response wrappers
+  PaginatedBooksSchema,
+  BookListSchema,
+  PaginatedReviewsSchema,
+  PaginatedThreadsSchema,
+  PaginatedLibraryBooksSchema,
+  ChallengeDetailSchema,
+  ChallengeListSchema,
+  ChallengeProgressSchema,
+  LeaderboardListSchema,
+  UserBadgeListSchema,
+  LikeResultSchema,
 ];

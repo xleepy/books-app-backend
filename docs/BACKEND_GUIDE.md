@@ -18,13 +18,17 @@ books-app-backend/
 │   ├── generated/prisma/          # Generated Prisma client output
 │   ├── lib/
 │   │   ├── db.ts                  # PrismaClient singleton
+│   │   ├── errors.ts              # Domain error classes
 │   │   ├── getOrCreateUser.ts     # JWT-sub → User upsert helper
+│   │   ├── includes.ts            # Shared Prisma include fragments
 │   │   ├── mappers.ts            # DB → API response mappers
 │   │   ├── sanitize.ts           # HTML sanitization
+│   │   ├── slug.ts               # Slug generation helper
 │   │   ├── streaks.ts            # Reading streak tracking
 │   │   ├── xp.ts                 # XP/level system
 │   │   └── badges.ts             # Badge check + award logic
-│   ├── routes/                    # One file per domain
+│   ├── routes/                    # One file per domain — thin HTTP adapters
+│   ├── services/                  # Business logic per domain — pure functions, no HTTP
 │   ├── schemas/index.ts           # Shared JSON Schemas ($ref)
 │   └── types/fastify.d.ts         # FastifyJWT type augmentation
 └── tests/                         # Vitest integration tests
@@ -93,7 +97,8 @@ enum LibraryItemStatus {
 2. Run `npx prisma migrate dev --name descriptive_name`
 3. Add a mapper in `src/lib/mappers.ts` if the model has an API response shape
 4. Add a shared JSON Schema in `src/schemas/index.ts` and register it in `allSchemas`
-5. Regenerate the frontend API client: `cd ../books-app && npm run codegen`
+5. Add a service in `src/services/` if the model has business logic
+6. Regenerate the frontend API client: `cd ../books-app && npm run codegen`
 
 ### Database Client
 
@@ -206,21 +211,28 @@ All DB-to-API transformations live in `src/lib/mappers.ts`. These are **pure fun
 1. Create a mapper function in `mappers.ts`
 2. Define a local type alias for the Prisma include result
 3. Add a shared JSON Schema in `schemas/index.ts` matching the mapper output
-4. Use the mapper in the handler: `reply.send(toNewThing(data))`
+4. Use the mapper in the **service**, not the route: `return toNewThing(data)`
 
-Never return raw Prisma objects from handlers — always go through a mapper.
+Never return raw Prisma objects from handlers or services — always go through a mapper.
 
-### Deriving fields in handlers
+### Deriving fields in services
 
-When a request body contains a value that implies another field (e.g., `currentPage` implies `progressPct`), derive the dependent field in the handler before passing to Prisma:
+When a request body contains a value that implies another field (e.g., `currentPage` implies `progressPct`), derive the dependent field in the **service** before passing to Prisma:
 
 ```typescript
-let resolvedProgressPct = progressPct;
-let resolvedCurrentPage = currentPage;
-const pageCount = existing.book.pageCount ?? 0;
-if (currentPage !== undefined && pageCount > 0) {
-  resolvedCurrentPage = Math.max(0, Math.min(pageCount, currentPage));
-  resolvedProgressPct = Math.round((resolvedCurrentPage / pageCount) * 100);
+function resolveProgress(
+  existing: { book: { pageCount?: number | null } },
+  currentPage?: number,
+  progressPct?: number
+) {
+  let resolvedProgressPct = progressPct;
+  let resolvedCurrentPage = currentPage;
+  const pageCount = existing.book.pageCount ?? 0;
+  if (currentPage !== undefined && pageCount > 0) {
+    resolvedCurrentPage = Math.max(0, Math.min(pageCount, currentPage));
+    resolvedProgressPct = Math.round((resolvedCurrentPage / pageCount) * 100);
+  }
+  return { resolvedProgressPct, resolvedCurrentPage };
 }
 ```
 
@@ -255,18 +267,31 @@ export function buildApp(opts?: { testUser?: TestUser }) {
 
 ### Route File Convention
 
-Each route file exports a single async function:
+Each route file exports a single async function. Routes are **thin HTTP adapters** — they validate input, call services, and map errors to replies. No business logic lives in routes.
 
 ```typescript
-import type { FastifyInstance } from "fastify";
-import { db } from "../lib/db";
-import { toReview } from "../lib/mappers";
+import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
+import { resolveUser } from "../lib/getOrCreateUser";
+import { handleServiceError } from "../lib/errors";
+import * as reviewsService from "../services/reviews";
+
+async function createReviewHandler(request: FastifyRequest, reply: FastifyReply) {
+  const { id: bookId } = request.params as { id: string };
+  const { rating, text } = request.body as { rating: number; text: string };
+  const user = await resolveUser(request);
+  try {
+    const result = await reviewsService.createReview(user.id, bookId, rating, text);
+    return reply.code(201).send(result);
+  } catch (err) {
+    return handleServiceError(reply, err);
+  }
+}
 
 export async function reviewsRoute(app: FastifyInstance) {
-  app.get("/books/:id/reviews", {
+  app.post("/books/:id/reviews", {
     schema: { ... },
     preHandler: [app.authenticate],
-    handler: async (request, reply) => { ... },
+    handler: createReviewHandler,
   });
 }
 ```
@@ -275,7 +300,47 @@ export async function reviewsRoute(app: FastifyInstance) {
 - Named export: `async function <domain>Route(app: FastifyInstance)`
 - Full paths — no prefix encapsulation (`/books/:id/reviews`, not `/:id/reviews`)
 - All routes for a domain in one file
-- Import `db` from `../lib/db`, mappers from `../lib/mappers`
+- Handlers are named functions, not inline arrows
+- Handlers import services, not `db` or mappers directly
+
+### Services Layer (`src/services/`)
+
+Business logic lives in services — pure functions that accept primitive arguments and return data. They know nothing about HTTP (`request`, `reply`, status codes).
+
+```typescript
+import { db } from "../lib/db";
+import { toReview } from "../lib/mappers";
+import { sanitizeHtml } from "../lib/sanitize";
+import { NotFoundError, ConflictError } from "../lib/errors";
+
+export async function createReview(
+  userId: string,
+  bookId: string,
+  rating: number,
+  text: string
+) {
+  const book = await db.book.findUnique({ where: { id: bookId } });
+  if (!book) throw new NotFoundError("Book not found");
+
+  const existing = await db.review.findFirst({ where: { bookId, userId } });
+  if (existing) throw new ConflictError("You have already reviewed this book");
+
+  const sanitizedText = sanitizeHtml(text);
+  const review = await db.review.create({
+    data: { bookId, userId, rating, text: sanitizedText },
+    include: { user: true },
+  });
+
+  return toReview(review);
+}
+```
+
+**Rules**:
+- One file per domain (`library.ts`, `books.ts`, `reviews.ts`, etc.)
+- Services throw domain errors (`NotFoundError`, `ConflictError`, `ForbiddenError`, `BadRequestError`)
+- Services call mappers before returning — never return raw Prisma objects
+- Services may call `db.$transaction()` for multi-step consistency
+- Services are testable without Fastify — mock Prisma client and call directly
 
 ### Schema Validation
 
@@ -312,14 +377,68 @@ app.post("/library", {
 
 ### Shared JSON Schemas (`src/schemas/index.ts`)
 
-All reusable schemas are defined with `$id` and registered in `app.ts`:
+All reusable schemas are defined with `$id` and registered in `app.ts`. There are three kinds of shared schemas:
 
+**1. Entity schemas** — describe a single resource shape:
 ```typescript
 export const BookSchema = {
   $id: "Book",
   type: "object",
-  required: ["id", "title", "author", "tags", "description", "rating", "reviewCount"],
+  required: ["id", "title", "author", ...],
   properties: { ... },
+} as const;
+```
+
+**2. Request schemas** — describe common querystring/param shapes used across multiple routes:
+```typescript
+export const PaginationQuerySchema = {
+  $id: "PaginationQuery",
+  type: "object",
+  properties: {
+    page: { type: "integer", minimum: 1, default: 1 },
+    limit: { type: "integer", minimum: 1, maximum: 100, default: 20 },
+  },
+} as const;
+
+export const IdParamSchema = {
+  $id: "IdParam",
+  type: "object",
+  required: ["id"],
+  properties: { id: { type: "string" } },
+} as const;
+```
+
+Use them directly when a route's querystring/params match exactly:
+```typescript
+querystring: { $ref: "PaginationQuery" }
+params: { $ref: "IdParam" }
+```
+
+Or combine with `allOf` when a route adds extra fields:
+```typescript
+querystring: {
+  allOf: [
+    { $ref: "PaginationQuery" },
+    {
+      type: "object",
+      properties: {
+        status: { type: "string", enum: ["want", "reading", "finished"] },
+      },
+    },
+  ],
+}
+```
+
+**3. Response wrapper schemas** — describe common response envelopes:
+```typescript
+export const PaginatedBooksSchema = {
+  $id: "PaginatedBooks",
+  type: "object",
+  required: ["data", "pagination"],
+  properties: {
+    data: { type: "array", items: { $ref: "Book" } },
+    pagination: { $ref: "Pagination" },
+  },
 } as const;
 ```
 
@@ -329,6 +448,15 @@ export const BookSchema = {
 2. Add it to the `allSchemas` export array
 3. Reference it in route schemas: `{ $ref: "MyNewThing" }`
 4. Nested refs work too: `items: { $ref: "ThreadReply" }`
+
+**When to extract vs. keep inline:**
+
+| Extract to shared schema | Keep inline in route |
+|---|---|
+| Appears in 3+ routes | Unique to one route |
+| Part of the public API contract (affects codegen) | Internal detail |
+| Needs to stay in sync (e.g., max limit) | No risk of drift |
+| Response wrapper patterns (`{ data, pagination }`) | Route-specific body with many fields |
 
 ### Authentication
 
@@ -343,20 +471,41 @@ const user = await getOrCreateUser(sub, email, user_metadata?.full_name ?? user_
 
 ### Error Handling
 
-Use `@fastify/sensible` helpers — never throw or manually construct error responses:
+Services throw **domain errors**; routes catch them and translate to `@fastify/sensible` helpers via `handleServiceError`:
 
 ```typescript
-reply.notFound("Book not found")          // 404
-reply.conflict("Already in library")       // 409
-reply.forbidden("Not the owner")           // 403
-reply.notImplemented()                     // 501 (for stub routes)
+import { NotFoundError, ConflictError, ForbiddenError, BadRequestError } from "../lib/errors";
+
+// In a service:
+if (!book) throw new NotFoundError("Book not found");
+if (existing) throw new ConflictError("Already in library");
+
+// In a route handler:
+import { handleServiceError } from "../lib/errors";
+
+try {
+  const result = await reviewsService.createReview(user.id, bookId, rating, text);
+  return reply.code(201).send(result);
+} catch (err) {
+  return handleServiceError(reply, err);
+}
 ```
+
+Available domain errors:
+
+| Error class | Status | Sensible helper |
+|---|---|---|
+| `NotFoundError` | 404 | `reply.notFound()` |
+| `ConflictError` | 409 | `reply.conflict()` |
+| `ForbiddenError` | 403 | `reply.forbidden()` |
+| `BadRequestError` | 400 | `reply.badRequest()` |
+| `UnauthorizedError` | 401 | `reply.unauthorized()` |
 
 For success responses:
 
 ```typescript
 reply.send({ data, pagination })           // 200
-reply.code(201).send(mapper(result))       // 201 Created
+reply.code(201).send(result)               // 201 Created
 reply.code(204).send()                     // 204 No Content
 ```
 
@@ -460,11 +609,12 @@ test("strips script tags", () => {
 1. **Prisma model** — Add to `schema.prisma`, run `prisma migrate dev`
 2. **Mapper** — Add `toNewThing()` in `src/lib/mappers.ts`
 3. **Shared schema** — Add JSON Schema with `$id` in `src/schemas/index.ts`, add to `allSchemas`
-4. **Route file** — Create `src/routes/newThing.ts`, follow route conventions
-5. **Register route** — Import and `app.register(newThingRoute)` in `src/app.ts`
-6. **Swagger tag** — Add entry to `tags` array in `app.ts` swagger config
-7. **Tests** — Add integration test in `tests/`
-8. **Frontend codegen** — Update `openapi-config.js` in `books-app`, run `npm run codegen`
+4. **Service** — Create `src/services/newThing.ts`, follow service conventions (pure functions, domain errors, call mapper)
+5. **Route file** — Create `src/routes/newThing.ts`, thin adapter that calls the service
+6. **Register route** — Import and `app.register(newThingRoute)` in `src/app.ts`
+7. **Swagger tag** — Add entry to `tags` array in `app.ts` swagger config
+8. **Tests** — Add integration test in `tests/` (and unit tests for pure service logic if applicable)
+9. **Frontend codegen** — Update `openapi-config.js` in `books-app`, run `npm run codegen`
 
 ---
 
@@ -475,11 +625,13 @@ test("strips script tags", () => {
 | `@map("snake_case")` on every column | Use camelCase DB column names |
 | `@@map("plural_snake")` on every model | Leave table names as Prisma defaults |
 | `@id @default(uuid())` for all IDs | Use `@default(autoincrement())` |
-| Mappers for all API responses | Return raw Prisma objects from handlers |
+| Put business logic in `src/services/` | Put business logic in route handlers |
+| Mappers for all API responses | Return raw Prisma objects from handlers or services |
+| Domain errors (`NotFoundError`, `ConflictError`) in services | Throw plain `Error` or construct responses in services |
 | `$ref` for shared response schemas | Inline complex response shapes |
 | `Promise.all([count, findMany])` for pagination | Run count + findMany sequentially |
 | `$transaction` for multi-step read-write | Allow race conditions in concurrent updates |
 | `sanitizeHtml()` on user text | Trust user input |
-| `reply.notFound()` / `reply.conflict()` | Throw errors or manually construct responses |
+| `reply.notFound()` / `reply.conflict()` in routes | Throw errors or manually construct responses in routes |
 | `app.inject()` for tests | Start a real HTTP server in tests |
 | `buildApp({ testUser })` for auth bypass | Mock JWT in tests |

@@ -1,119 +1,94 @@
-import type { FastifyInstance } from "fastify";
-import { db } from "../lib/db";
-import { toLibraryBook } from "../lib/mappers";
-import { getOrCreateUser } from "../lib/getOrCreateUser";
+import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { LibraryItemStatus } from "../generated/prisma/client";
-import { XP_VALUES, computeLevelInfo } from "../lib/xp";
-import { checkAndAwardBadges } from "../lib/badges";
+import { resolveUser } from "../lib/getOrCreateUser";
+import { handleServiceError } from "../lib/errors";
+import * as libraryService from "../services/library";
 
-const bookInclude = { bookSubjects: { include: { subject: true } } } as const;
+/* ─── Type interfaces ─── */
 
-/**
- * Called after a book transitions to "finished".
- * Awards XP, updates streak, checks badges, and increments progress on all
- * currently-active challenges for the user.
- */
-async function onBookFinished(userId: string, book: { pageCount?: number | null }): Promise<void> {
-  const today = new Date();
-
-  await db.$transaction(async (tx) => {
-    const pageCount = book.pageCount ?? 0;
-    await tx.user.update({
-      where: { id: userId },
-      data: {
-        booksFinished: { increment: 1 },
-        pagesRead: { increment: pageCount },
-        hoursRead: { increment: Math.round((pageCount / 30) * 100) / 100 },
-      },
-    });
-
-    const previousBooks = await tx.libraryItem.count({
-      where: { userId, status: "finished" },
-    });
-    await tx.xpEvent.create({
-      data: { userId, source: "book_finished", xp: XP_VALUES.book_finished, meta: { pageCount } },
-    });
-    const afterFinish = await tx.user.update({
-      where: { id: userId },
-      data: { xpTotal: { increment: XP_VALUES.book_finished } },
-      select: { xpTotal: true, level: true, levelTitle: true },
-    });
-    const levelInfo = computeLevelInfo(afterFinish.xpTotal);
-    if (afterFinish.level !== levelInfo.level || afterFinish.levelTitle !== levelInfo.levelTitle) {
-      await tx.user.update({
-        where: { id: userId },
-        data: { level: levelInfo.level, levelTitle: levelInfo.levelTitle },
-      });
-    }
-    if (previousBooks === 1) {
-      await tx.xpEvent.create({
-        data: { userId, source: "first_book", xp: XP_VALUES.first_book, meta: {} },
-      });
-      await tx.user.update({
-        where: { id: userId },
-        data: { xpTotal: { increment: XP_VALUES.first_book } },
-      });
-    }
-
-    const user = await tx.user.findUnique({ where: { id: userId } });
-    if (user) {
-      const today_ = new Date();
-      const isoDow = today_.getDay() === 0 ? 6 : today_.getDay() - 1;
-      let newStreak = user.streak;
-      const prevDate = user.streakLastDate;
-      if (prevDate) {
-        const prevDay = new Date(prevDate.getFullYear(), prevDate.getMonth(), prevDate.getDate());
-        const diff = Math.round((today_.getTime() - prevDay.getTime()) / (24 * 60 * 60 * 1000));
-        if (diff === 0) {
-          // already counted today
-        } else if (diff === 1) {
-          newStreak = user.streak + 1;
-        } else {
-          newStreak = 1;
-        }
-      } else {
-        newStreak = 1;
-      }
-      const weekDays = [...user.weekDays] as boolean[];
-      weekDays[isoDow] = true;
-      await tx.user.update({
-        where: { id: userId },
-        data: { streak: newStreak, bestStreak: Math.max(newStreak, user.bestStreak), streakLastDate: today_, weekDays },
-      });
-    }
-
-    const activeChallenges = await tx.challenge.findMany({
-      where: { activeFrom: { lte: today }, activeTo: { gte: today } },
-    });
-    for (const challenge of activeChallenges) {
-      const uc = await tx.userChallenge.upsert({
-        where: { userId_challengeId: { userId, challengeId: challenge.id } },
-        create: { userId, challengeId: challenge.id, current: 1 },
-        update: { current: { increment: 1 } },
-      });
-      if (uc.current >= challenge.target && uc.completedAt == null) {
-        await tx.userChallenge.update({
-          where: { userId_challengeId: { userId, challengeId: challenge.id } },
-          data: { completedAt: today },
-        });
-        await tx.xpEvent.create({
-          data: { userId, source: "challenge", xp: XP_VALUES.challenge, meta: { challengeId: challenge.id, challengeTitle: challenge.title } },
-        });
-        const updated = await tx.user.update({
-          where: { id: userId },
-          data: { xpTotal: { increment: XP_VALUES.challenge } },
-          select: { xpTotal: true, level: true, levelTitle: true },
-        });
-        const li = computeLevelInfo(updated.xpTotal);
-        if (updated.level !== li.level || updated.levelTitle !== li.levelTitle) {
-          await tx.user.update({ where: { id: userId }, data: { level: li.level, levelTitle: li.levelTitle } });
-        }
-      }
-    }
-  });
-
-  await checkAndAwardBadges(userId, "book_finished");
+interface LibraryQuery {
+  page?: number;
+  limit?: number;
+  status?: LibraryItemStatus;
 }
+
+interface AddLibraryBody {
+  bookId: string;
+  status: LibraryItemStatus;
+}
+
+interface PatchLibraryBody {
+  status?: LibraryItemStatus;
+  progressPct?: number;
+  currentPage?: number;
+  timeLeftMin?: number | null;
+}
+
+/* ─── Route handlers ─── */
+
+async function getLibraryStatsHandler(request: FastifyRequest, reply: FastifyReply) {
+  const user = await resolveUser(request);
+  try {
+    const result = await libraryService.getLibraryStats(user.id);
+    return reply.send(result);
+  } catch (err) {
+    return handleServiceError(reply, err);
+  }
+}
+
+async function getLibraryHandler(request: FastifyRequest, reply: FastifyReply) {
+  const { page = 1, limit = 20, status } = request.query as LibraryQuery;
+  const user = await resolveUser(request);
+  try {
+    const result = await libraryService.getLibrary(user.id, page, limit, status);
+    return reply.send(result);
+  } catch (err) {
+    return handleServiceError(reply, err);
+  }
+}
+
+async function addToLibraryHandler(request: FastifyRequest, reply: FastifyReply) {
+  const { bookId, status } = request.body as AddLibraryBody;
+  const user = await resolveUser(request);
+  try {
+    const result = await libraryService.addToLibrary(user.id, bookId, status);
+    return reply.code(201).send(result);
+  } catch (err) {
+    return handleServiceError(reply, err);
+  }
+}
+
+async function updateLibraryItemHandler(request: FastifyRequest, reply: FastifyReply) {
+  const { bookId } = request.params as { bookId: string };
+  const { status, progressPct, currentPage, timeLeftMin } = request.body as PatchLibraryBody;
+  const user = await resolveUser(request);
+  try {
+    const result = await libraryService.updateLibraryItem(
+      user.id,
+      bookId,
+      status,
+      progressPct,
+      currentPage,
+      timeLeftMin
+    );
+    return reply.send(result);
+  } catch (err) {
+    return handleServiceError(reply, err);
+  }
+}
+
+async function removeFromLibraryHandler(request: FastifyRequest, reply: FastifyReply) {
+  const { bookId } = request.params as { bookId: string };
+  const user = await resolveUser(request);
+  try {
+    await libraryService.removeFromLibrary(user.id, bookId);
+    return reply.code(204).send();
+  } catch (err) {
+    return handleServiceError(reply, err);
+  }
+}
+
+/* ─── Route registration ─── */
 
 export async function libraryRoute(app: FastifyInstance) {
   app.get("/library/stats", {
@@ -127,18 +102,7 @@ export async function libraryRoute(app: FastifyInstance) {
       },
     },
     preHandler: [app.authenticate],
-    handler: async (request, reply) => {
-      const { sub, email, user_metadata } = request.user;
-      const user = await getOrCreateUser(sub, email, user_metadata?.full_name ?? user_metadata?.name);
-
-      const [finished, reading, want] = await Promise.all([
-        db.libraryItem.count({ where: { userId: user.id, status: "finished" } }),
-        db.libraryItem.count({ where: { userId: user.id, status: "reading" } }),
-        db.libraryItem.count({ where: { userId: user.id, status: "want" } }),
-      ]);
-
-      return reply.send({ finished, reading, saved: want });
-    },
+    handler: getLibraryStatsHandler,
   });
 
   app.get("/library", {
@@ -147,52 +111,23 @@ export async function libraryRoute(app: FastifyInstance) {
       summary: "Get the authenticated user's saved books",
       security: [{ bearerAuth: [] }],
       querystring: {
-        type: "object",
-        properties: {
-          page: { type: "integer", minimum: 1, default: 1 },
-          limit: { type: "integer", minimum: 1, maximum: 100, default: 20 },
-          status: { type: "string", enum: ["want", "reading", "finished"] },
-        },
+        allOf: [
+          { $ref: "PaginationQuery" },
+          {
+            type: "object",
+            properties: {
+              status: { type: "string", enum: ["want", "reading", "finished"] },
+            },
+          },
+        ],
       },
       response: {
-        200: {
-          type: "object",
-          required: ["data", "pagination"],
-          properties: {
-            data: { type: "array", items: { $ref: "LibraryBook" } },
-            pagination: { $ref: "Pagination" },
-          },
-        },
+        200: { $ref: "PaginatedLibraryBooks" },
         401: { $ref: "ApiError" },
       },
     },
     preHandler: [app.authenticate],
-    handler: async (request, reply) => {
-      const { page = 1, limit = 20, status } = request.query as {
-        page?: number;
-        limit?: number;
-        status?: LibraryItemStatus;
-      };
-      const { sub, email, user_metadata } = request.user;
-      const user = await getOrCreateUser(sub, email, user_metadata?.full_name ?? user_metadata?.name);
-
-      const where = { userId: user.id, ...(status ? { status } : {}) };
-      const [total, rows] = await Promise.all([
-        db.libraryItem.count({ where }),
-        db.libraryItem.findMany({
-          where,
-          orderBy: { addedAt: "desc" },
-          skip: (page - 1) * limit,
-          take: limit,
-          include: { book: { include: bookInclude } },
-        }),
-      ]);
-
-      return reply.send({
-        data: rows.map(toLibraryBook),
-        pagination: { total, page, limit },
-      });
-    },
+    handler: getLibraryHandler,
   });
 
   app.post("/library", {
@@ -216,26 +151,7 @@ export async function libraryRoute(app: FastifyInstance) {
       },
     },
     preHandler: [app.authenticate],
-    handler: async (request, reply) => {
-      const { bookId, status } = request.body as { bookId: string; status: LibraryItemStatus };
-      const { sub, email, user_metadata } = request.user;
-      const user = await getOrCreateUser(sub, email, user_metadata?.full_name ?? user_metadata?.name);
-
-      const book = await db.book.findUnique({ where: { id: bookId } });
-      if (!book) return reply.notFound("Book not found");
-
-      const existing = await db.libraryItem.findUnique({
-        where: { userId_bookId: { userId: user.id, bookId } },
-      });
-      if (existing) return reply.conflict("Book already in library");
-
-      const item = await db.libraryItem.create({
-        data: { userId: user.id, bookId, status },
-        include: { book: { include: bookInclude } },
-      });
-
-      return reply.code(201).send(toLibraryBook(item));
-    },
+    handler: addToLibraryHandler,
   });
 
   app.patch("/library/:bookId", {
@@ -243,11 +159,7 @@ export async function libraryRoute(app: FastifyInstance) {
       tags: ["library"],
       summary: "Update reading status, progress, or current book flag",
       security: [{ bearerAuth: [] }],
-      params: {
-        type: "object",
-        required: ["bookId"],
-        properties: { bookId: { type: "string" } },
-      },
+      params: { $ref: "BookIdParam" },
       body: {
         type: "object",
         properties: {
@@ -264,54 +176,7 @@ export async function libraryRoute(app: FastifyInstance) {
       },
     },
     preHandler: [app.authenticate],
-    handler: async (request, reply) => {
-      const { bookId } = request.params as { bookId: string };
-      const { status, progressPct, currentPage, timeLeftMin } = request.body as {
-        status?: LibraryItemStatus;
-        progressPct?: number;
-        currentPage?: number;
-        timeLeftMin?: number | null;
-      };
-      const { sub, email, user_metadata } = request.user;
-      const user = await getOrCreateUser(sub, email, user_metadata?.full_name ?? user_metadata?.name);
-
-      const existing = await db.libraryItem.findUnique({
-        where: { userId_bookId: { userId: user.id, bookId } },
-        include: { book: true },
-      });
-      if (!existing) return reply.notFound("Book not in library");
-
-      // Derive progress from currentPage when provided
-      let resolvedProgressPct = progressPct;
-      let resolvedCurrentPage = currentPage;
-      const pageCount = existing.book.pageCount ?? 0;
-      if (currentPage !== undefined && pageCount > 0) {
-        resolvedCurrentPage = Math.max(0, Math.min(pageCount, currentPage));
-        resolvedProgressPct = Math.round((resolvedCurrentPage / pageCount) * 100);
-      }
-
-      const finishedAt =
-        status === "finished" && existing.status !== "finished" ? new Date() : undefined;
-
-      const item = await db.libraryItem.update({
-        where: { userId_bookId: { userId: user.id, bookId } },
-        data: {
-          ...(status !== undefined && { status }),
-          ...(resolvedProgressPct !== undefined && { progressPct: resolvedProgressPct }),
-          ...(resolvedCurrentPage !== undefined && { currentPage: resolvedCurrentPage }),
-          ...(timeLeftMin !== undefined && { timeLeftMin }),
-          ...(finishedAt && { finishedAt }),
-        },
-        include: { book: { include: bookInclude } },
-      });
-
-      // Fire gamification pipeline when a book is newly finished
-      if (status === "finished" && existing.status !== "finished") {
-        await onBookFinished(user.id, item.book);
-      }
-
-      return reply.send(toLibraryBook(item));
-    },
+    handler: updateLibraryItemHandler,
   });
 
   app.delete("/library/:bookId", {
@@ -319,11 +184,7 @@ export async function libraryRoute(app: FastifyInstance) {
       tags: ["library"],
       summary: "Remove a book from the authenticated user's library",
       security: [{ bearerAuth: [] }],
-      params: {
-        type: "object",
-        required: ["bookId"],
-        properties: { bookId: { type: "string" } },
-      },
+      params: { $ref: "BookIdParam" },
       response: {
         204: { type: "null", description: "Removed successfully" },
         401: { $ref: "ApiError" },
@@ -331,18 +192,6 @@ export async function libraryRoute(app: FastifyInstance) {
       },
     },
     preHandler: [app.authenticate],
-    handler: async (request, reply) => {
-      const { bookId } = request.params as { bookId: string };
-      const { sub, email, user_metadata } = request.user;
-      const user = await getOrCreateUser(sub, email, user_metadata?.full_name ?? user_metadata?.name);
-
-      const existing = await db.libraryItem.findUnique({
-        where: { userId_bookId: { userId: user.id, bookId } },
-      });
-      if (!existing) return reply.notFound("Book not in library");
-
-      await db.libraryItem.delete({ where: { userId_bookId: { userId: user.id, bookId } } });
-      return reply.code(204).send();
-    },
+    handler: removeFromLibraryHandler,
   });
 }
