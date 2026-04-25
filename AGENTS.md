@@ -18,6 +18,20 @@ Fastify 5.x + TypeScript backend with Prisma 7 ORM and PostgreSQL. JWT auth via 
 |-------|---------|
 | [Backend Guide](./docs/BACKEND_GUIDE.md) | Prisma schema conventions, Fastify routes, JSON Schemas, mappers, testing patterns |
 
+## Additional Reference Docs
+
+The `docs/` folder contains implementation specs and design references beyond the core guide:
+
+| Document | Purpose |
+|----------|---------|
+| [Implementation Plan](./docs/implementation-plan.md) | Phased milestones, API contract, schema decisions |
+| [Challenges Spec](./docs/challenges-spec.md) | User-created challenges: API contract, schema changes, mapper updates |
+| [Auth Providers Guide](./docs/auth-providers-guide.md) | Supabase Auth setup: Google OAuth, email/password, Apple Sign-In |
+| [Architecture Ideas](./docs/architecture-ideas.md) | Research notes on recommendation engine approaches |
+| [Infrastructure Risk Analysis](./docs/infrastructure-risk-analysis.md) | Hosting, backup, and scaling considerations |
+
+Consult these for context on specific features or design decisions.
+
 Read the Backend Guide before making changes to:
 - **Database schema** → Prisma conventions, migrations, indexes
 - **API routes** → Fastify route structure, schema validation, auth

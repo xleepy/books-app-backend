@@ -199,8 +199,16 @@ POST   /v1/threads/:id/like                     → { liked: bool, likes: int }
 # Gamification
 GET    /v1/challenges?filter=active|monthly|yearly  → Challenge[]
 GET    /v1/challenges/:id/progress              → UserChallenge
+GET    /v1/challenges/:id/leaderboard           → LeaderboardEntry[]
 GET    /v1/leaderboard                          → LeaderboardEntry[]
 GET    /v1/me/badges                            → UserBadge[]
+
+# User-Created Challenges (Phase 14)
+POST   /v1/challenges                           → Challenge            body: { title, description?, variant, metric, target, activeFrom, activeTo, badgeId? }
+GET    /v1/challenges/:id                       → ChallengeDetail
+DELETE /v1/challenges/:id                       → 204 No Content       (creator only)
+POST   /v1/challenges/:id/join                  → UserChallenge
+POST   /v1/challenges/:id/leave               → 204 No Content
 ```
 
 All mutating routes require `Authorization: Bearer <jwt>`. Feed endpoint is the recommendation engine's only public surface.
@@ -360,6 +368,23 @@ Frontend-only phase that adds a dedicated screen for updating reading progress b
 - ✅ `tests/library.test.ts` — added 3 PATCH test cases: `currentPage` derives `progressPct`, clamping to `pageCount`, and explicit `progressPct` still works
 - ✅ Frontend API regenerated via `npm run codegen` (backend must be running)
 - ✅ Frontend: `ReadingDetailScreen` + `ReadingProgressForm` — separated data loading from presentation; direct page input + quick chips (`+10`, `+25`, `Finished`)
+
+### Phase 14 — User-Created Challenges ⏳ not started
+
+Extend the challenge system to allow authenticated users to create, join, and manage their own reading challenges.
+
+**Backend:**
+- ⏳ `prisma/schema.prisma` — extend `Challenge` model with `description`, `metric`, `creatorId`, `slug`; add `User.createdChallenges` relation
+- ⏳ `src/lib/mappers.ts` — update `toChallenge()` with `creatorName`, `participantCount`, `isJoined`, `isCreator`, `badgeText` (days left / ended / upcoming)
+- ⏳ `src/schemas/index.ts` — add `CreateChallengeBody`, `ChallengeDetail` JSON schemas; register in `allSchemas`
+- ⏳ `src/services/challenges.ts` — business logic: `createChallenge` (auto-generate slug, auto-join creator), `getChallengeById`, `deleteChallenge` (creator-only, cascade `UserChallenge`), `joinChallenge`, `leaveChallenge`
+- ⏳ `src/routes/challenges.ts` — add `POST /challenges`, `GET /challenges/:id`, `DELETE /challenges/:id`, `POST /challenges/:id/join`, `POST /challenges/:id/leave`
+- ⏳ Update `GET /challenges` to include user-created challenges; add `variant=weekly|custom` filters
+- ⏳ Integration tests for all new endpoints
+
+**Frontend (see `../books-app/docs/challenges-spec.md`):**
+- ⏳ `ChallengeDetailScreen` + `CreateChallengeScreen` + `GenrePickerScreen`
+- ⏳ New RTK Query hooks: `useGetChallengesByIdQuery`, `usePostChallengesMutation`, `usePostChallengesByIdJoinMutation`, `usePostChallengesByIdLeaveMutation`, `useDeleteChallengesByIdMutation`
 
 ### Phase 7 — Nice-to-haves ⏳ not started
 
