@@ -369,7 +369,7 @@ Frontend-only phase that adds a dedicated screen for updating reading progress b
 - ✅ Frontend API regenerated via `npm run codegen` (backend must be running)
 - ✅ Frontend: `ReadingDetailScreen` + `ReadingProgressForm` — separated data loading from presentation; direct page input + quick chips (`+10`, `+25`, `Finished`)
 
-### Phase 14 — User-Created Challenges ⏳ not started
+### Phase 14 — User-Created Challenges ✅ complete
 
 Extend the challenge system to allow authenticated users to create, join, and manage their own reading challenges.
 
@@ -383,8 +383,10 @@ Extend the challenge system to allow authenticated users to create, join, and ma
 - ⏳ Integration tests for all new endpoints
 
 **Frontend (see `../books-app/docs/challenges-spec.md`):**
-- ⏳ `ChallengeDetailScreen` + `CreateChallengeScreen` + `GenrePickerScreen`
-- ⏳ New RTK Query hooks: `useGetChallengesByIdQuery`, `usePostChallengesMutation`, `usePostChallengesByIdJoinMutation`, `usePostChallengesByIdLeaveMutation`, `useDeleteChallengesByIdMutation`
+- ✅ `ChallengeDetailScreen` — hero card, progress bar, inline leaderboard, join/leave/cancel CTA
+- ✅ `CreateChallengeScreen` — modal with template picker, metric picker, target stepper, date range, optional badge picker
+- ✅ `GenrePickerScreen` — modal multi-select genre list; used from Settings and future onboarding
+- ✅ New RTK Query hooks: `useGetChallengesByIdQuery`, `usePostChallengesMutation`, `usePostChallengesByIdJoinMutation`, `usePostChallengesByIdLeaveMutation`, `useDeleteChallengesByIdMutation`
 
 ### Phase 7 — Nice-to-haves ⏳ not started
 
