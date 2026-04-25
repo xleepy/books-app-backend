@@ -109,13 +109,38 @@ async function updateReadingStreak(tx: TxClient, userId: string, today: Date) {
   });
 }
 
-async function progressActiveChallenges(
+async function maybeCompleteChallenge(
+  tx: TxClient,
+  userId: string,
+  challenge: { id: string; title: string; target: number },
+  uc: { current: number; completedAt: Date | null },
+  today: Date,
+) {
+  if (uc.current >= challenge.target && uc.completedAt == null) {
+    await tx.userChallenge.update({
+      where: { userId_challengeId: { userId, challengeId: challenge.id } },
+      data: { completedAt: today },
+    });
+    await awardXpAndLevelUp(tx, userId, "challenge", XP_VALUES.challenge, {
+      challengeId: challenge.id,
+      challengeTitle: challenge.title,
+    });
+    // Fire push outside transaction so DB commit is guaranteed first
+    sendChallengeCompleteNotification(userId, challenge.title).catch(() => {});
+  }
+}
+
+async function progressBookChallenges(
   tx: TxClient,
   userId: string,
   today: Date,
 ) {
   const activeChallenges = await tx.challenge.findMany({
-    where: { activeFrom: { lte: today }, activeTo: { gte: today } },
+    where: {
+      activeFrom: { lte: today },
+      activeTo: { gte: today },
+      metric: "books",
+    },
   });
 
   for (const challenge of activeChallenges) {
@@ -125,20 +150,38 @@ async function progressActiveChallenges(
       update: { current: { increment: 1 } },
     });
 
-    if (uc.current >= challenge.target && uc.completedAt == null) {
-      await tx.userChallenge.update({
-        where: { userId_challengeId: { userId, challengeId: challenge.id } },
-        data: { completedAt: today },
-      });
-      await awardXpAndLevelUp(tx, userId, "challenge", XP_VALUES.challenge, {
+    await maybeCompleteChallenge(tx, userId, challenge, uc, today);
+  }
+}
+
+async function progressPageChallenges(
+  tx: TxClient,
+  userId: string,
+  pagesDelta: number,
+  today: Date,
+) {
+  if (pagesDelta <= 0) return;
+
+  const activeChallenges = await tx.challenge.findMany({
+    where: {
+      activeFrom: { lte: today },
+      activeTo: { gte: today },
+      metric: "pages",
+    },
+  });
+
+  for (const challenge of activeChallenges) {
+    const uc = await tx.userChallenge.upsert({
+      where: { userId_challengeId: { userId, challengeId: challenge.id } },
+      create: {
+        userId,
         challengeId: challenge.id,
-        challengeTitle: challenge.title,
-      });
-      // Fire push outside transaction so DB commit is guaranteed first
-      sendChallengeCompleteNotification(userId, challenge.title).catch(
-        () => {},
-      );
-    }
+        current: pagesDelta,
+      },
+      update: { current: { increment: pagesDelta } },
+    });
+
+    await maybeCompleteChallenge(tx, userId, challenge, uc, today);
   }
 }
 
@@ -165,7 +208,7 @@ export async function onBookFinished(
     );
     await maybeAwardFirstBookXp(tx, userId, previousBooks);
     await updateReadingStreak(tx, userId, today);
-    await progressActiveChallenges(tx, userId, today);
+    await progressBookChallenges(tx, userId, today);
   });
 
   await checkAndAwardBadges(userId, "book_finished");
@@ -282,6 +325,18 @@ export async function updateLibraryItem(
     },
     include: { book: { include: bookInclude } },
   });
+
+  const pagesDelta =
+    resolvedCurrentPage !== undefined
+      ? resolvedCurrentPage - (existing.currentPage ?? 0)
+      : 0;
+
+  if (pagesDelta > 0) {
+    const today = new Date();
+    await db.$transaction(async (tx) => {
+      await progressPageChallenges(tx, userId, pagesDelta, today);
+    });
+  }
 
   if (status === "finished" && existing.status !== "finished") {
     await onBookFinished(userId, item.book);

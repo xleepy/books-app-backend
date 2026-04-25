@@ -10,6 +10,8 @@ const TEST_USER = {
 
 let app: FastifyInstance;
 let bookId: string;
+let pagesChallengeId: string;
+let booksChallengeId: string;
 
 beforeAll(async () => {
   const book = await db.book.create({
@@ -22,6 +24,36 @@ beforeAll(async () => {
   });
   bookId = book.id;
 
+  const today = new Date();
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  const pagesChallenge = await db.challenge.create({
+    data: {
+      slug: "test-pages-1000",
+      title: "Read 1000 Pages",
+      variant: "custom",
+      metric: "pages",
+      target: 1000,
+      activeFrom: today,
+      activeTo: tomorrow,
+    },
+  });
+  pagesChallengeId = pagesChallenge.id;
+
+  const booksChallenge = await db.challenge.create({
+    data: {
+      slug: "test-books-5",
+      title: "Read 5 Books",
+      variant: "custom",
+      metric: "books",
+      target: 5,
+      activeFrom: today,
+      activeTo: tomorrow,
+    },
+  });
+  booksChallengeId = booksChallenge.id;
+
   app = buildApp({ testUser: TEST_USER });
   await app.ready();
 });
@@ -30,6 +62,7 @@ afterEach(async () => {
   const user = await db.user.findUnique({ where: { authId: TEST_USER.sub } });
   if (user) {
     await db.libraryItem.deleteMany({ where: { userId: user.id } });
+    await db.userChallenge.deleteMany({ where: { userId: user.id } });
   }
 });
 
@@ -43,6 +76,9 @@ afterAll(async () => {
     await db.libraryItem.deleteMany({ where: { userId: user.id } });
     await db.user.delete({ where: { id: user.id } });
   }
+  await db.challenge.deleteMany({
+    where: { id: { in: [pagesChallengeId, booksChallengeId] } },
+  });
   await db.book.delete({ where: { id: bookId } });
   await app.close();
   await db.$disconnect();
@@ -99,7 +135,10 @@ describe("POST /library", () => {
     const res = await app.inject({
       method: "POST",
       url: "/library",
-      payload: { bookId: "00000000-0000-0000-0000-000000000000", status: "want" },
+      payload: {
+        bookId: "00000000-0000-0000-0000-000000000000",
+        status: "want",
+      },
     });
 
     expect(res.statusCode).toBe(404);
@@ -206,5 +245,112 @@ describe("PATCH /library/:bookId", () => {
     expect(res.statusCode).toBe(200);
     const body = res.json();
     expect(body.status).toBe("finished");
+  });
+
+  test("200 — updating currentPage progresses pages-metric challenge", async () => {
+    await app.inject({
+      method: "POST",
+      url: "/library",
+      payload: { bookId, status: "reading" },
+    });
+
+    const res = await app.inject({
+      method: "PATCH",
+      url: `/library/${bookId}`,
+      payload: { currentPage: 100 },
+    });
+
+    expect(res.statusCode).toBe(200);
+
+    const user = await db.user.findUnique({ where: { authId: TEST_USER.sub } });
+    const uc = await db.userChallenge.findUnique({
+      where: {
+        userId_challengeId: { userId: user!.id, challengeId: pagesChallengeId },
+      },
+    });
+
+    expect(uc).not.toBeNull();
+    expect(uc!.current).toBe(100);
+  });
+
+  test("200 — marking finished progresses books-metric challenge", async () => {
+    await app.inject({
+      method: "POST",
+      url: "/library",
+      payload: { bookId, status: "reading" },
+    });
+
+    const res = await app.inject({
+      method: "PATCH",
+      url: `/library/${bookId}`,
+      payload: { status: "finished" },
+    });
+
+    expect(res.statusCode).toBe(200);
+
+    const user = await db.user.findUnique({ where: { authId: TEST_USER.sub } });
+    const uc = await db.userChallenge.findUnique({
+      where: {
+        userId_challengeId: { userId: user!.id, challengeId: booksChallengeId },
+      },
+    });
+
+    expect(uc).not.toBeNull();
+    expect(uc!.current).toBe(1);
+  });
+
+  test("200 — pages-metric challenge accumulates across multiple updates", async () => {
+    await app.inject({
+      method: "POST",
+      url: "/library",
+      payload: { bookId, status: "reading" },
+    });
+
+    await app.inject({
+      method: "PATCH",
+      url: `/library/${bookId}`,
+      payload: { currentPage: 50 },
+    });
+
+    await app.inject({
+      method: "PATCH",
+      url: `/library/${bookId}`,
+      payload: { currentPage: 120 },
+    });
+
+    const user = await db.user.findUnique({ where: { authId: TEST_USER.sub } });
+    const uc = await db.userChallenge.findUnique({
+      where: {
+        userId_challengeId: { userId: user!.id, challengeId: pagesChallengeId },
+      },
+    });
+
+    expect(uc).not.toBeNull();
+    expect(uc!.current).toBe(120);
+  });
+
+  test("200 — books-metric challenge is not affected by page-only update", async () => {
+    await app.inject({
+      method: "POST",
+      url: "/library",
+      payload: { bookId, status: "reading" },
+    });
+
+    const res = await app.inject({
+      method: "PATCH",
+      url: `/library/${bookId}`,
+      payload: { currentPage: 80 },
+    });
+
+    expect(res.statusCode).toBe(200);
+
+    const user = await db.user.findUnique({ where: { authId: TEST_USER.sub } });
+    const uc = await db.userChallenge.findUnique({
+      where: {
+        userId_challengeId: { userId: user!.id, challengeId: booksChallengeId },
+      },
+    });
+
+    expect(uc).toBeNull();
   });
 });
