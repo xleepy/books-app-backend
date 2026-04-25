@@ -14,7 +14,10 @@ interface ListBooksQuery {
 /* ─── Route handlers ─── */
 
 async function getFeedHandler(request: FastifyRequest, reply: FastifyReply) {
-  const { cursor, limit = 20 } = request.query as { cursor?: string; limit?: number };
+  const { cursor, limit = 20 } = request.query as {
+    cursor?: string;
+    limit?: number;
+  };
   try {
     const result = await booksService.getFeed(request.user?.sub, cursor, limit);
     return reply.send(result);
@@ -43,11 +46,26 @@ async function getBookHandler(request: FastifyRequest, reply: FastifyReply) {
   }
 }
 
-async function getRecommendationsHandler(request: FastifyRequest, reply: FastifyReply) {
+async function getRecommendationsHandler(
+  request: FastifyRequest,
+  reply: FastifyReply,
+) {
   const { id } = request.params as { id: string };
   const { limit = 10 } = request.query as { limit?: number };
   try {
     const result = await booksService.getRecommendations(id, limit);
+    return reply.send(result);
+  } catch (err) {
+    return handleServiceError(reply, err);
+  }
+}
+
+async function listSubjectsHandler(
+  request: FastifyRequest,
+  reply: FastifyReply,
+) {
+  try {
+    const result = await booksService.listSubjects();
     return reply.send(result);
   } catch (err) {
     return handleServiceError(reply, err);
@@ -60,7 +78,8 @@ export async function booksRoute(app: FastifyInstance) {
   app.get("/books/feed", {
     schema: {
       tags: ["books"],
-      summary: "Swipe-deck feed (cursor-paginated, personalized by liked-book subjects for authed users)",
+      summary:
+        "Swipe-deck feed (cursor-paginated, personalized by liked-book subjects for authed users)",
       querystring: { $ref: "CursorQuery" },
       response: {
         200: { $ref: "BookList" },
@@ -80,7 +99,10 @@ export async function booksRoute(app: FastifyInstance) {
           {
             type: "object",
             properties: {
-              q: { type: "string", description: "Full-text search on title / author" },
+              q: {
+                type: "string",
+                description: "Full-text search on title / author",
+              },
               tag: { type: "string", description: "Filter by subject slug" },
             },
           },
@@ -109,7 +131,8 @@ export async function booksRoute(app: FastifyInstance) {
   app.get("/books/:id/recommendations", {
     schema: {
       tags: ["books"],
-      summary: "Get recommended books similar to a given book (subject overlap)",
+      summary:
+        "Get recommended books similar to a given book (subject overlap)",
       params: { $ref: "IdParam" },
       querystring: { $ref: "LimitQuery" },
       response: {
@@ -118,5 +141,16 @@ export async function booksRoute(app: FastifyInstance) {
       },
     },
     handler: getRecommendationsHandler,
+  });
+
+  app.get("/subjects", {
+    schema: {
+      tags: ["books"],
+      summary: "List all available book subjects (genres)",
+      response: {
+        200: { $ref: "SubjectList" },
+      },
+    },
+    handler: listSubjectsHandler,
   });
 }

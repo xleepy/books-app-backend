@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { resolveUser } from "../lib/getOrCreateUser";
 import { handleServiceError } from "../lib/errors";
 import * as meService from "../services/me";
+import * as pushTokenService from "../services/pushTokens";
 
 /* ─── Type interfaces ─── */
 
@@ -34,14 +35,22 @@ async function patchMeHandler(request: FastifyRequest, reply: FastifyReply) {
   const user = await resolveUser(request);
   const { name, avatarHue, readingGoal } = request.body as PatchMeBody;
   try {
-    const result = await meService.updateProfile(user.id, name, avatarHue, readingGoal);
+    const result = await meService.updateProfile(
+      user.id,
+      name,
+      avatarHue,
+      readingGoal,
+    );
     return reply.send(result);
   } catch (err) {
     return handleServiceError(reply, err);
   }
 }
 
-async function getPreferencesHandler(request: FastifyRequest, reply: FastifyReply) {
+async function getPreferencesHandler(
+  request: FastifyRequest,
+  reply: FastifyReply,
+) {
   const user = await resolveUser(request);
   try {
     const result = await meService.getPreferences(user.id);
@@ -51,7 +60,10 @@ async function getPreferencesHandler(request: FastifyRequest, reply: FastifyRepl
   }
 }
 
-async function putPreferencesHandler(request: FastifyRequest, reply: FastifyReply) {
+async function putPreferencesHandler(
+  request: FastifyRequest,
+  reply: FastifyReply,
+) {
   const user = await resolveUser(request);
   const body = request.body as PreferencesBody;
   try {
@@ -62,7 +74,10 @@ async function putPreferencesHandler(request: FastifyRequest, reply: FastifyRepl
   }
 }
 
-async function changePasswordHandler(_request: FastifyRequest, reply: FastifyReply) {
+async function changePasswordHandler(
+  _request: FastifyRequest,
+  reply: FastifyReply,
+) {
   return reply.notImplemented();
 }
 
@@ -76,7 +91,10 @@ async function getBadgesHandler(request: FastifyRequest, reply: FastifyReply) {
   }
 }
 
-async function getCurrentBookHandler(request: FastifyRequest, reply: FastifyReply) {
+async function getCurrentBookHandler(
+  request: FastifyRequest,
+  reply: FastifyReply,
+) {
   const user = await resolveUser(request);
   try {
     const result = await meService.getCurrentBook(user.id);
@@ -93,7 +111,8 @@ export async function meRoute(app: FastifyInstance) {
   app.get("/me", {
     schema: {
       tags: ["me"],
-      summary: "Get authenticated user's profile, reading stats, and preferences",
+      summary:
+        "Get authenticated user's profile, reading stats, and preferences",
       security: [{ bearerAuth: [] }],
       response: {
         200: { $ref: "User" },
@@ -158,7 +177,8 @@ export async function meRoute(app: FastifyInstance) {
   app.post("/me/password", {
     schema: {
       tags: ["me"],
-      summary: "Change password (email/password users only) — delegates to Supabase client-side",
+      summary:
+        "Change password (email/password users only) — delegates to Supabase client-side",
       security: [{ bearerAuth: [] }],
       body: {
         type: "object",
@@ -208,5 +228,90 @@ export async function meRoute(app: FastifyInstance) {
     },
     preHandler: [app.authenticate],
     handler: getCurrentBookHandler,
+  });
+
+  app.post("/me/push-token", {
+    schema: {
+      tags: ["me"],
+      summary: "Register a push notification token for this device",
+      security: [{ bearerAuth: [] }],
+      body: {
+        type: "object",
+        required: ["token", "platform"],
+        properties: {
+          token: { type: "string" },
+          platform: { type: "string", enum: ["ios", "android"] },
+        },
+      },
+      response: {
+        200: {
+          type: "object",
+          required: ["id", "token", "platform"],
+          properties: {
+            id: { type: "string" },
+            token: { type: "string" },
+            platform: { type: "string" },
+          },
+        },
+        401: { $ref: "ApiError" },
+      },
+    },
+    preHandler: [app.authenticate],
+    handler: async (request: FastifyRequest, reply: FastifyReply) => {
+      const user = await resolveUser(request);
+      const { token, platform } = request.body as {
+        token: string;
+        platform: string;
+      };
+      try {
+        const result = await pushTokenService.registerPushToken(
+          user.id,
+          token,
+          platform,
+        );
+        return reply.send(result);
+      } catch (err) {
+        return handleServiceError(reply, err);
+      }
+    },
+  });
+
+  app.delete("/me/push-token", {
+    schema: {
+      tags: ["me"],
+      summary: "Unregister a push notification token",
+      security: [{ bearerAuth: [] }],
+      body: {
+        type: "object",
+        required: ["token"],
+        properties: {
+          token: { type: "string" },
+        },
+      },
+      response: {
+        200: {
+          type: "object",
+          required: ["deleted"],
+          properties: {
+            deleted: { type: "integer" },
+          },
+        },
+        401: { $ref: "ApiError" },
+      },
+    },
+    preHandler: [app.authenticate],
+    handler: async (request: FastifyRequest, reply: FastifyReply) => {
+      const user = await resolveUser(request);
+      const { token } = request.body as { token: string };
+      try {
+        const result = await pushTokenService.unregisterPushToken(
+          user.id,
+          token,
+        );
+        return reply.send(result);
+      } catch (err) {
+        return handleServiceError(reply, err);
+      }
+    },
   });
 }

@@ -1,4 +1,5 @@
 import { db } from "./db";
+import { Prisma } from "../generated/prisma/client";
 
 // ─── XP rules ─────────────────────────────────────────────────────────────────
 
@@ -77,8 +78,7 @@ export async function awardXp(
   userId: string,
   source: string,
   xp: number,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  meta?: Record<string, any>
+  meta?: Prisma.InputJsonValue
 ): Promise<LevelInfo & { newXpTotal: number }> {
   return db.$transaction(async (tx) => {
     await tx.xpEvent.create({ data: { userId, source, xp, meta: meta ?? {} } });

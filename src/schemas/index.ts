@@ -1,7 +1,15 @@
 export const BookSchema = {
   $id: "Book",
   type: "object",
-  required: ["id", "title", "author", "tags", "description", "rating", "reviewCount"],
+  required: [
+    "id",
+    "title",
+    "author",
+    "tags",
+    "description",
+    "rating",
+    "reviewCount",
+  ],
   properties: {
     id: { type: "string" },
     title: { type: "string" },
@@ -32,7 +40,18 @@ export const ReviewSchema = {
 export const ThreadSchema = {
   $id: "Thread",
   type: "object",
-  required: ["id", "title", "bookContext", "preview", "replies", "likes", "timeAgo", "spoiler", "creatorName", "creatorAvatarHue"],
+  required: [
+    "id",
+    "title",
+    "bookContext",
+    "preview",
+    "replies",
+    "likes",
+    "timeAgo",
+    "spoiler",
+    "creatorName",
+    "creatorAvatarHue",
+  ],
   properties: {
     id: { type: "string" },
     title: { type: "string" },
@@ -65,7 +84,19 @@ export const ThreadReplySchema = {
 export const ThreadDetailSchema = {
   $id: "ThreadDetail",
   type: "object",
-  required: ["id", "title", "body", "bookContext", "likes", "timeAgo", "spoiler", "creatorName", "creatorAvatarHue", "isOwner", "replies"],
+  required: [
+    "id",
+    "title",
+    "body",
+    "bookContext",
+    "likes",
+    "timeAgo",
+    "spoiler",
+    "creatorName",
+    "creatorAvatarHue",
+    "isOwner",
+    "replies",
+  ],
   properties: {
     id: { type: "string" },
     title: { type: "string" },
@@ -87,7 +118,17 @@ export const ThreadDetailSchema = {
 export const ChallengeSchema = {
   $id: "Challenge",
   type: "object",
-  required: ["id", "slug", "title", "variant", "metric", "target", "participantCount", "isJoined", "isCreator"],
+  required: [
+    "id",
+    "slug",
+    "title",
+    "variant",
+    "metric",
+    "target",
+    "participantCount",
+    "isJoined",
+    "isCreator",
+  ],
   properties: {
     id: { type: "string" },
     slug: { type: "string" },
@@ -118,7 +159,10 @@ export const CreateChallengeBodySchema = {
   properties: {
     title: { type: "string", minLength: 1, maxLength: 80 },
     description: { type: "string", maxLength: 500 },
-    variant: { type: "string", enum: ["monthly", "yearly", "weekly", "custom"] },
+    variant: {
+      type: "string",
+      enum: ["monthly", "yearly", "weekly", "custom"],
+    },
     metric: { type: "string", enum: ["books", "pages", "hours", "streak"] },
     target: { type: "integer", minimum: 1, maximum: 9999 },
     activeFrom: { type: "string", format: "date" },
@@ -130,7 +174,16 @@ export const CreateChallengeBodySchema = {
 export const LeaderboardEntrySchema = {
   $id: "LeaderboardEntry",
   type: "object",
-  required: ["id", "rank", "name", "level", "levelTitle", "books", "xp", "avatarHue"],
+  required: [
+    "id",
+    "rank",
+    "name",
+    "level",
+    "levelTitle",
+    "books",
+    "xp",
+    "avatarHue",
+  ],
   properties: {
     id: { type: "string" },
     rank: { type: "integer" },
@@ -147,7 +200,17 @@ export const LeaderboardEntrySchema = {
 export const LibraryBookSchema = {
   $id: "LibraryBook",
   type: "object",
-  required: ["id", "title", "author", "tags", "description", "rating", "reviewCount", "status", "progressPct"],
+  required: [
+    "id",
+    "title",
+    "author",
+    "tags",
+    "description",
+    "rating",
+    "reviewCount",
+    "status",
+    "progressPct",
+  ],
   properties: {
     id: { type: "string" },
     title: { type: "string" },
@@ -179,7 +242,21 @@ export const LibraryStatsSchema = {
 export const UserSchema = {
   $id: "User",
   type: "object",
-  required: ["id", "name", "avatarHue", "level", "levelTitle", "xpTotal", "xpCurrentLevel", "xpToNextLevel", "booksFinished", "streak", "bestStreak", "weekDays", "readingGoal"],
+  required: [
+    "id",
+    "name",
+    "avatarHue",
+    "level",
+    "levelTitle",
+    "xpTotal",
+    "xpCurrentLevel",
+    "xpToNextLevel",
+    "booksFinished",
+    "streak",
+    "bestStreak",
+    "weekDays",
+    "readingGoal",
+  ],
   properties: {
     id: { type: "string" },
     name: { type: "string" },
@@ -205,7 +282,15 @@ export const UserSchema = {
 export const PreferencesSchema = {
   $id: "Preferences",
   type: "object",
-  required: ["readingGoalMinutes", "reminderEnabled", "preferredGenres", "notifyPush", "notifyWeeklyDigest", "notifyChallenge", "profileVisibility"],
+  required: [
+    "readingGoalMinutes",
+    "reminderEnabled",
+    "preferredGenres",
+    "notifyPush",
+    "notifyWeeklyDigest",
+    "notifyChallenge",
+    "profileVisibility",
+  ],
   properties: {
     readingGoalMinutes: { type: "integer" },
     reminderTime: { type: "string", nullable: true },
@@ -216,7 +301,10 @@ export const PreferencesSchema = {
     notifyChallenge: { type: "boolean" },
     // "friends" is accepted by the API but privacy filtering is not yet implemented;
     // it is treated the same as "public" until enforcement logic is added.
-    profileVisibility: { type: "string", enum: ["public", "friends", "private"] },
+    profileVisibility: {
+      type: "string",
+      enum: ["public", "friends", "private"],
+    },
   },
 } as const;
 
@@ -449,6 +537,26 @@ export const AuthTokensSchema = {
   },
 } as const;
 
+export const SubjectListSchema = {
+  $id: "SubjectList",
+  type: "object",
+  required: ["data"],
+  properties: {
+    data: {
+      type: "array",
+      items: {
+        type: "object",
+        required: ["id", "name", "slug"],
+        properties: {
+          id: { type: "string" },
+          name: { type: "string" },
+          slug: { type: "string" },
+        },
+      },
+    },
+  },
+} as const;
+
 export const allSchemas = [
   BookSchema,
   LibraryBookSchema,
@@ -486,4 +594,5 @@ export const allSchemas = [
   LeaderboardListSchema,
   UserBadgeListSchema,
   LikeResultSchema,
+  SubjectListSchema,
 ];

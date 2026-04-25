@@ -5,12 +5,17 @@ import { toLibraryBook } from "../lib/mappers";
 import { NotFoundError, ConflictError } from "../lib/errors";
 import { XP_VALUES, computeLevelInfo } from "../lib/xp";
 import { checkAndAwardBadges } from "../lib/badges";
+import { sendChallengeCompleteNotification } from "./notifications";
 
 type TxClient = Prisma.TransactionClient;
 
 /* ─── Internal gamification helpers ─── */
 
-async function incrementUserStats(tx: TxClient, userId: string, pageCount: number) {
+async function incrementUserStats(
+  tx: TxClient,
+  userId: string,
+  pageCount: number,
+) {
   await tx.user.update({
     where: { id: userId },
     data: {
@@ -26,7 +31,7 @@ async function awardXpAndLevelUp(
   userId: string,
   source: string,
   xp: number,
-  meta: Record<string, any>
+  meta: Prisma.InputJsonValue,
 ) {
   await tx.xpEvent.create({ data: { userId, source, xp, meta } });
   const updated = await tx.user.update({
@@ -35,7 +40,10 @@ async function awardXpAndLevelUp(
     select: { xpTotal: true, level: true, levelTitle: true },
   });
   const levelInfo = computeLevelInfo(updated.xpTotal);
-  if (updated.level !== levelInfo.level || updated.levelTitle !== levelInfo.levelTitle) {
+  if (
+    updated.level !== levelInfo.level ||
+    updated.levelTitle !== levelInfo.levelTitle
+  ) {
     await tx.user.update({
       where: { id: userId },
       data: { level: levelInfo.level, levelTitle: levelInfo.levelTitle },
@@ -44,7 +52,11 @@ async function awardXpAndLevelUp(
   return updated;
 }
 
-async function maybeAwardFirstBookXp(tx: TxClient, userId: string, previousBooks: number) {
+async function maybeAwardFirstBookXp(
+  tx: TxClient,
+  userId: string,
+  previousBooks: number,
+) {
   if (previousBooks !== 1) return;
   await tx.xpEvent.create({
     data: { userId, source: "first_book", xp: XP_VALUES.first_book, meta: {} },
@@ -64,8 +76,14 @@ async function updateReadingStreak(tx: TxClient, userId: string, today: Date) {
   const prevDate = user.streakLastDate;
 
   if (prevDate) {
-    const prevDay = new Date(prevDate.getFullYear(), prevDate.getMonth(), prevDate.getDate());
-    const diff = Math.round((today.getTime() - prevDay.getTime()) / (24 * 60 * 60 * 1000));
+    const prevDay = new Date(
+      prevDate.getFullYear(),
+      prevDate.getMonth(),
+      prevDate.getDate(),
+    );
+    const diff = Math.round(
+      (today.getTime() - prevDay.getTime()) / (24 * 60 * 60 * 1000),
+    );
     if (diff === 0) {
       // already counted today
     } else if (diff === 1) {
@@ -91,7 +109,11 @@ async function updateReadingStreak(tx: TxClient, userId: string, today: Date) {
   });
 }
 
-async function progressActiveChallenges(tx: TxClient, userId: string, today: Date) {
+async function progressActiveChallenges(
+  tx: TxClient,
+  userId: string,
+  today: Date,
+) {
   const activeChallenges = await tx.challenge.findMany({
     where: { activeFrom: { lte: today }, activeTo: { gte: today } },
   });
@@ -112,11 +134,18 @@ async function progressActiveChallenges(tx: TxClient, userId: string, today: Dat
         challengeId: challenge.id,
         challengeTitle: challenge.title,
       });
+      // Fire push outside transaction so DB commit is guaranteed first
+      sendChallengeCompleteNotification(userId, challenge.title).catch(
+        () => {},
+      );
     }
   }
 }
 
-export async function onBookFinished(userId: string, book: { pageCount?: number | null }): Promise<void> {
+export async function onBookFinished(
+  userId: string,
+  book: { pageCount?: number | null },
+): Promise<void> {
   const today = new Date();
   const pageCount = book.pageCount ?? 0;
 
@@ -127,7 +156,13 @@ export async function onBookFinished(userId: string, book: { pageCount?: number 
       where: { userId, status: "finished" },
     });
 
-    await awardXpAndLevelUp(tx, userId, "book_finished", XP_VALUES.book_finished, { pageCount });
+    await awardXpAndLevelUp(
+      tx,
+      userId,
+      "book_finished",
+      XP_VALUES.book_finished,
+      { pageCount },
+    );
     await maybeAwardFirstBookXp(tx, userId, previousBooks);
     await updateReadingStreak(tx, userId, today);
     await progressActiveChallenges(tx, userId, today);
@@ -139,7 +174,7 @@ export async function onBookFinished(userId: string, book: { pageCount?: number 
 function resolveProgress(
   existing: { book: { pageCount?: number | null } },
   currentPage?: number,
-  progressPct?: number
+  progressPct?: number,
 ) {
   let resolvedProgressPct = progressPct;
   let resolvedCurrentPage = currentPage;
@@ -169,7 +204,7 @@ export async function getLibrary(
   userId: string,
   page: number,
   limit: number,
-  status?: LibraryItemStatus
+  status?: LibraryItemStatus,
 ) {
   const where = { userId, ...(status ? { status } : {}) };
   const [total, rows] = await Promise.all([
@@ -186,7 +221,11 @@ export async function getLibrary(
   return { data: rows.map(toLibraryBook), pagination: { total, page, limit } };
 }
 
-export async function addToLibrary(userId: string, bookId: string, status: LibraryItemStatus) {
+export async function addToLibrary(
+  userId: string,
+  bookId: string,
+  status: LibraryItemStatus,
+) {
   const book = await db.book.findUnique({ where: { id: bookId } });
   if (!book) throw new NotFoundError("Book not found");
 
@@ -209,7 +248,7 @@ export async function updateLibraryItem(
   status?: LibraryItemStatus,
   progressPct?: number,
   currentPage?: number,
-  timeLeftMin?: number | null
+  timeLeftMin?: number | null,
 ) {
   const existing = await db.libraryItem.findUnique({
     where: { userId_bookId: { userId, bookId } },
@@ -220,18 +259,24 @@ export async function updateLibraryItem(
   const { resolvedProgressPct, resolvedCurrentPage } = resolveProgress(
     existing,
     currentPage,
-    progressPct
+    progressPct,
   );
 
   const finishedAt =
-    status === "finished" && existing.status !== "finished" ? new Date() : undefined;
+    status === "finished" && existing.status !== "finished"
+      ? new Date()
+      : undefined;
 
   const item = await db.libraryItem.update({
     where: { userId_bookId: { userId, bookId } },
     data: {
       ...(status !== undefined && { status }),
-      ...(resolvedProgressPct !== undefined && { progressPct: resolvedProgressPct }),
-      ...(resolvedCurrentPage !== undefined && { currentPage: resolvedCurrentPage }),
+      ...(resolvedProgressPct !== undefined && {
+        progressPct: resolvedProgressPct,
+      }),
+      ...(resolvedCurrentPage !== undefined && {
+        currentPage: resolvedCurrentPage,
+      }),
       ...(timeLeftMin !== undefined && { timeLeftMin }),
       ...(finishedAt && { finishedAt }),
     },

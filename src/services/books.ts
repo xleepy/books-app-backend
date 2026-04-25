@@ -11,9 +11,11 @@ async function buildPersonalizedFeed(
   offset: number,
   limit: number,
   excludedBookIds: string[],
-  subjectFreq: Map<string, number>
+  subjectFreq: Map<string, number>,
 ) {
-  const where = excludedBookIds.length ? { id: { notIn: excludedBookIds } } : undefined;
+  const where = excludedBookIds.length
+    ? { id: { notIn: excludedBookIds } }
+    : undefined;
 
   const candidates = await db.book.findMany({
     where,
@@ -21,7 +23,8 @@ async function buildPersonalizedFeed(
     take: MAX_FEED_CANDIDATES,
   });
 
-  const getRatingCountOrZero = (book: (typeof candidates)[number]) => book.ratingCount ?? 0;
+  const getRatingCountOrZero = (book: (typeof candidates)[number]) =>
+    book.ratingCount ?? 0;
 
   const scored = candidates
     .map((book) => {
@@ -50,9 +53,11 @@ async function buildPersonalizedFeed(
 async function buildPopularFeed(
   offset: number,
   limit: number,
-  excludedBookIds: string[]
+  excludedBookIds: string[],
 ) {
-  const where = excludedBookIds.length ? { id: { notIn: excludedBookIds } } : undefined;
+  const where = excludedBookIds.length
+    ? { id: { notIn: excludedBookIds } }
+    : undefined;
 
   const rows = await db.book.findMany({
     where,
@@ -73,8 +78,12 @@ async function buildPopularFeed(
 
 /* ─── Exported service functions ─── */
 
+const BASE_GENRE_WEIGHT = 1;
+
 export async function getFeed(authSub?: string, cursor?: string, limit = 20) {
-  const offset = cursor ? parseInt(Buffer.from(cursor, "base64url").toString(), 10) : 0;
+  const offset = cursor
+    ? parseInt(Buffer.from(cursor, "base64url").toString(), 10)
+    : 0;
 
   let excludedBookIds: string[] = [];
   let subjectFreq = new Map<string, number>();
@@ -82,13 +91,38 @@ export async function getFeed(authSub?: string, cursor?: string, limit = 20) {
   if (authSub) {
     const user = await db.user.findUnique({ where: { authId: authSub } });
     if (user) {
-      const [libraryItems, passedSwipes] = await Promise.all([
-        db.libraryItem.findMany({ where: { userId: user.id }, select: { bookId: true } }),
-        db.swipe.findMany({ where: { userId: user.id, direction: "left" }, select: { bookId: true } }),
+      const [libraryItems, passedSwipes, prefs] = await Promise.all([
+        db.libraryItem.findMany({
+          where: { userId: user.id },
+          select: { bookId: true },
+        }),
+        db.swipe.findMany({
+          where: { userId: user.id, direction: "left" },
+          select: { bookId: true },
+        }),
+        db.userPreferences.findUnique({
+          where: { userId: user.id },
+          select: { preferredGenres: true },
+        }),
       ]);
       const libraryBookIds = libraryItems.map((item) => item.bookId);
-      excludedBookIds = [...libraryBookIds, ...passedSwipes.map((s) => s.bookId)];
+      excludedBookIds = [
+        ...libraryBookIds,
+        ...passedSwipes.map((s) => s.bookId),
+      ];
 
+      // Seed subjectFreq from explicit preferred genres
+      if (prefs?.preferredGenres.length) {
+        const preferredSubjects = await db.subject.findMany({
+          where: { name: { in: prefs.preferredGenres, mode: "insensitive" } },
+          select: { id: true },
+        });
+        for (const { id } of preferredSubjects) {
+          subjectFreq.set(id, (subjectFreq.get(id) ?? 0) + BASE_GENRE_WEIGHT);
+        }
+      }
+
+      // Layer library-derived signals on top
       if (libraryBookIds.length > 0) {
         const librarySubjects = await db.bookSubject.findMany({
           where: { bookId: { in: libraryBookIds } },
@@ -112,7 +146,7 @@ export async function listBooks(
   page: number,
   limit: number,
   q?: string,
-  tag?: string
+  tag?: string,
 ) {
   const where = {
     ...(q
@@ -145,7 +179,10 @@ export async function listBooks(
 }
 
 export async function getBook(id: string) {
-  const book = await db.book.findUnique({ where: { id }, include: bookInclude });
+  const book = await db.book.findUnique({
+    where: { id },
+    include: bookInclude,
+  });
   if (!book) throw new NotFoundError("Book not found");
   return toBook(book);
 }
@@ -171,4 +208,12 @@ export async function getRecommendations(id: string, limit = 10) {
   });
 
   return { data: rows.map(toBook) };
+}
+
+export async function listSubjects() {
+  const rows = await db.subject.findMany({
+    orderBy: { name: "asc" },
+    select: { id: true, name: true, slug: true },
+  });
+  return { data: rows };
 }
