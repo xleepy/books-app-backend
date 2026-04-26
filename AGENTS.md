@@ -46,7 +46,9 @@ Read the Backend Guide before making changes to:
 ```bash
 npm run dev               # Dev server (requires Postgres)
 npm run typecheck         # TypeScript check
+npm run lint              # ESLint check
 npm run db:migrate        # Create + apply migration + regenerate client
+```
 npm run db:generate       # Regenerate Prisma client only
 npm run db:studio         # Prisma Studio GUI
 npm run test              # Integration tests (requires Postgres)
@@ -92,6 +94,7 @@ src/
 9. **Run `Promise.all([count, findMany])`** for pagination
 10. **Sanitize user input** with `sanitizeHtml()` before storing
 11. **If your change touches logic covered by integration tests, review and run those tests.** Before finishing, inspect the relevant test file(s) in `tests/` to ensure your changes don't break existing assertions or data setup/teardown, and run `npm run test` to confirm everything passes.
+12. **Run `npm run lint` before finishing** — Ensure ESLint passes with no errors or warnings after making changes.
 
 ---
 
