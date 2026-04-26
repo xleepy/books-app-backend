@@ -43,7 +43,7 @@ The `docs/` folder contains implementation specs and design references beyond th
 
 | Document | Purpose |
 |----------|---------|
-| [Implementation Plan](./docs/implementation-plan.md) | Phased milestones, API contract, schema decisions |
+| [Implementation Plan](./docs/PLAN.md) | Phased milestones, API contract, schema decisions |
 | [Challenges Spec](./docs/challenges-spec.md) | User-created challenges: API contract, schema changes, mapper updates |
 | [Auth Providers Guide](./docs/auth-providers-guide.md) | Supabase Auth setup: Google OAuth, email/password, Apple Sign-In |
 | [Architecture Ideas](./docs/architecture-ideas.md) | Research notes on recommendation engine approaches |
