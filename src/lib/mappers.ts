@@ -1,4 +1,16 @@
-import type { Book, BookSubject, Subject, Review, User, LibraryItem, Thread, ThreadReply, UserPreferences, UserBadge, Challenge } from "../generated/prisma/client";
+import type {
+  Book,
+  BookSubject,
+  Subject,
+  Review,
+  User,
+  LibraryItem,
+  Thread,
+  ThreadReply,
+  UserPreferences,
+  UserBadge,
+  Challenge,
+} from "../generated/prisma/client";
 import { computeLevelInfo } from "./xp";
 
 type BookWithSubjects = Book & {
@@ -139,13 +151,14 @@ export function toThread(t: ThreadWithRelations, currentUserId?: string) {
   };
 }
 
-export function toThreadReply(r: ThreadReplyWithUser) {
+export function toThreadReply(r: ThreadReplyWithUser, currentUserId?: string) {
   return {
     id: r.id,
     body: r.body,
     timeAgo: toTimeAgo(r.createdAt),
     creatorName: r.user.name,
     creatorAvatarHue: r.user.avatarHue,
+    isOwner: currentUserId ? r.userId === currentUserId : false,
   };
 }
 
@@ -156,7 +169,10 @@ type ThreadDetailWithRelations = Thread & {
   threadLikes?: { userId: string }[];
 };
 
-export function toThreadDetail(t: ThreadDetailWithRelations, currentUserId?: string) {
+export function toThreadDetail(
+  t: ThreadDetailWithRelations,
+  currentUserId?: string,
+) {
   return {
     id: t.id,
     title: t.title,
@@ -174,7 +190,7 @@ export function toThreadDetail(t: ThreadDetailWithRelations, currentUserId?: str
     isOwner: currentUserId ? t.creatorId === currentUserId : false,
     replies: t.replies
       .filter((r) => r.deletedAt == null)
-      .map(toThreadReply),
+      .map((r) => toThreadReply(r, currentUserId)),
   };
 }
 
@@ -195,7 +211,14 @@ export function toPreferences(p: UserPreferences) {
 
 // ─── Badge mapper ──────────────────────────────────────────────────────────────
 
-type UserBadgeWithBadge = UserBadge & { badge: { slug: string; name: string; description: string | null; iconUrl: string | null } };
+type UserBadgeWithBadge = UserBadge & {
+  badge: {
+    slug: string;
+    name: string;
+    description: string | null;
+    iconUrl: string | null;
+  };
+};
 
 export function toUserBadge(ub: UserBadgeWithBadge) {
   return {
@@ -209,7 +232,10 @@ export function toUserBadge(ub: UserBadgeWithBadge) {
 
 // ─── Challenge mapper ──────────────────────────────────────────────────────────
 
-type ChallengeWithBadge = Challenge & { badge: { name: string } | null; creator: { name: string } | null };
+type ChallengeWithBadge = Challenge & {
+  badge: { name: string } | null;
+  creator: { name: string } | null;
+};
 
 export function toChallenge(
   c: ChallengeWithBadge,
@@ -225,12 +251,16 @@ export function toChallenge(
   let badgeText: string | null = null;
   if (activeFrom && activeTo) {
     if (today < activeFrom) {
-      const days = Math.ceil((activeFrom.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      const days = Math.ceil(
+        (activeFrom.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
+      );
       badgeText = `Starts in ${days} days`;
     } else if (today > activeTo) {
       badgeText = "Ended";
     } else {
-      const daysLeft = Math.ceil((activeTo.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      const daysLeft = Math.ceil(
+        (activeTo.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
+      );
       badgeText = `${daysLeft} days left`;
     }
   }
@@ -270,7 +300,11 @@ type UserForLeaderboard = {
   avatarHue: number;
 };
 
-export function toLeaderboardEntry(u: UserForLeaderboard, rank: number, currentUserId: string) {
+export function toLeaderboardEntry(
+  u: UserForLeaderboard,
+  rank: number,
+  currentUserId: string,
+) {
   return {
     id: u.id,
     rank,

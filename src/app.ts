@@ -78,7 +78,7 @@ export function buildApp(opts?: { testUser?: TestUser }) {
           } catch (err) {
             reply.send(err);
           }
-        }
+        },
   );
 
   app.register(swagger, {
@@ -107,10 +107,19 @@ export function buildApp(opts?: { testUser?: TestUser }) {
         { name: "books", description: "Book catalogue and recommendations" },
         { name: "reviews", description: "Book reviews" },
         { name: "library", description: "User's personal book library" },
-        { name: "me", description: "Authenticated user profile and preferences" },
+        {
+          name: "me",
+          description: "Authenticated user profile and preferences",
+        },
         { name: "discussions", description: "Discussion threads (threads)" },
-        { name: "challenges", description: "Reading challenges and leaderboards" },
-        { name: "swipes", description: "Swipe events for feed personalization" },
+        {
+          name: "challenges",
+          description: "Reading challenges and leaderboards",
+        },
+        {
+          name: "swipes",
+          description: "Swipe events for feed personalization",
+        },
       ],
     },
   });

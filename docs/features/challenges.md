@@ -426,7 +426,7 @@ export function toChallenge(
 
 | File | Purpose |
 |---|---|
-| `frontend-spec.md` | Frontend UI and state management spec |
+| `../books-app/docs/features/challenges.md` | Frontend UI and state management spec |
 | `prisma/schema.prisma` | Database schema |
 | `src/routes/challenges.ts` | Route handlers |
 | `src/lib/mappers.ts` | DB → API response transformers |

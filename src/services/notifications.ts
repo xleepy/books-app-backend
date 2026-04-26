@@ -14,7 +14,7 @@ interface PushPayload {
 export async function registerPushToken(
   userId: string,
   token: string,
-  platform: string
+  platform: string,
 ): Promise<void> {
   if (!Expo.isExpoPushToken(token)) {
     throw new Error("Invalid Expo push token");
@@ -39,7 +39,7 @@ export async function removeUserPushTokens(userId: string): Promise<void> {
 
 export async function sendPushToUser(
   userId: string,
-  payload: PushPayload
+  payload: PushPayload,
 ): Promise<void> {
   const tokens = await db.pushToken.findMany({
     where: { userId },
@@ -50,13 +50,13 @@ export async function sendPushToUser(
 
   await sendToTokens(
     tokens.map((t) => t.token),
-    payload
+    payload,
   );
 }
 
 export async function sendChallengeCompleteNotification(
   userId: string,
-  challengeTitle: string
+  challengeTitle: string,
 ): Promise<void> {
   const prefs = await db.userPreferences.findUnique({
     where: { userId },
@@ -72,9 +72,33 @@ export async function sendChallengeCompleteNotification(
   });
 }
 
+export async function sendChallengeCancelledNotification(
+  userIds: string[],
+  challengeTitle: string,
+): Promise<void> {
+  if (!userIds.length) return;
+
+  const prefs = await db.userPreferences.findMany({
+    where: { userId: { in: userIds } },
+    select: { userId: true, notifyPush: true, notifyChallenge: true },
+  });
+
+  const eligible = prefs
+    .filter((p) => p.notifyPush && p.notifyChallenge)
+    .map((p) => p.userId);
+
+  for (const userId of eligible) {
+    sendPushToUser(userId, {
+      title: "Challenge Cancelled",
+      body: `"${challengeTitle}" was cancelled by the creator.`,
+      data: { screen: "Compete" },
+    }).catch(() => {});
+  }
+}
+
 export async function sendBadgeAwardedNotification(
   userId: string,
-  badgeName: string
+  badgeName: string,
 ): Promise<void> {
   const prefs = await db.userPreferences.findUnique({
     where: { userId },
@@ -94,7 +118,7 @@ export async function sendBadgeAwardedNotification(
 
 async function sendToTokens(
   tokens: string[],
-  { title, body, data }: PushPayload
+  { title, body, data }: PushPayload,
 ): Promise<void> {
   const messages: ExpoPushMessage[] = tokens
     .filter(Expo.isExpoPushToken)

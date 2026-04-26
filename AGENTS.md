@@ -18,6 +18,25 @@ Fastify 5.x + TypeScript backend with Prisma 7 ORM and PostgreSQL. JWT auth via 
 |-------|---------|
 | [Backend Guide](./docs/BACKEND_GUIDE.md) | Prisma schema conventions, Fastify routes, JSON Schemas, mappers, testing patterns |
 
+## Feature Docs
+
+When implementing a new feature, create a feature document under `docs/features/<feature-name>.md`. This serves as the single source of truth for:
+
+- UI/UX design decisions (Pencil frames, interaction flows)
+- Backend API contract (routes, request/response shapes)
+- Authorization rules
+- Notification behavior
+- Frontend state management (RTK Query tags, cache invalidation)
+- Testing notes
+
+After a feature is completed, refine the feature doc to reflect the final implementation. Do not delete it — it becomes living documentation.
+
+When updating a feature doc, revisit **other feature docs** that mention this feature (by name, route, or shared schema) and update any stale references so all docs stay consistent. If the frontend has a corresponding feature doc for the same capability, keep the API contracts and status labels in sync.
+
+| Feature | Doc |
+|---------|-----|
+| User-Created Challenges | [docs/features/challenges.md](./docs/features/challenges.md) |
+
 ## Additional Reference Docs
 
 The `docs/` folder contains implementation specs and design references beyond the core guide:

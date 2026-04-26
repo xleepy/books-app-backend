@@ -2,6 +2,7 @@ import { db } from "../lib/db";
 import { generateSlug } from "../lib/slug";
 import { toChallenge, toLeaderboardEntry } from "../lib/mappers";
 import { NotFoundError, ForbiddenError, BadRequestError } from "../lib/errors";
+import { sendChallengeCancelledNotification } from "./notifications";
 
 function startOfDayUTC(d: Date): Date {
   return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
@@ -9,22 +10,30 @@ function startOfDayUTC(d: Date): Date {
 
 /* ─── Exported service functions ─── */
 
-export async function getGlobalLeaderboard(limit: number, currentUserId: string) {
+export async function getGlobalLeaderboard(
+  limit: number,
+  currentUserId: string,
+) {
   const users = await db.user.findMany({
     orderBy: [{ xpTotal: "desc" }, { booksFinished: "desc" }],
     take: limit,
   });
 
-  return { data: users.map((u, i) => toLeaderboardEntry(u, i + 1, currentUserId)) };
+  return {
+    data: users.map((u, i) => toLeaderboardEntry(u, i + 1, currentUserId)),
+  };
 }
 
 export async function listChallenges(
   userId: string,
-  filter: "active" | "monthly" | "yearly" | "weekly" | "custom" = "active"
+  filter: "active" | "monthly" | "yearly" | "weekly" | "custom" = "active",
 ) {
   const today = startOfDayUTC(new Date());
   const variantFilter =
-    filter === "monthly" || filter === "yearly" || filter === "weekly" || filter === "custom"
+    filter === "monthly" ||
+    filter === "yearly" ||
+    filter === "weekly" ||
+    filter === "custom"
       ? filter
       : undefined;
 
@@ -44,7 +53,7 @@ export async function listChallenges(
     },
   });
   const progressMap = new Map(
-    userChallenges.map((uc) => [uc.challengeId, uc.current])
+    userChallenges.map((uc) => [uc.challengeId, uc.current]),
   );
 
   const participantCounts = await db.userChallenge.groupBy({
@@ -53,7 +62,7 @@ export async function listChallenges(
     _count: { challengeId: true },
   });
   const countMap = new Map(
-    participantCounts.map((pc) => [pc.challengeId, pc._count.challengeId])
+    participantCounts.map((pc) => [pc.challengeId, pc._count.challengeId]),
   );
 
   const data = challenges.map((c) =>
@@ -80,7 +89,7 @@ export async function createChallenge(
     activeFrom: string;
     activeTo: string;
     badgeId?: string;
-  }
+  },
 ) {
   if (body.badgeId) {
     const badge = await db.badge.findUnique({ where: { id: body.badgeId } });
@@ -125,6 +134,50 @@ export async function createChallenge(
   return { data: toChallenge(challenge, 0, true, true, 1) };
 }
 
+export async function updateChallenge(
+  id: string,
+  userId: string,
+  body: {
+    title?: string;
+    description?: string;
+  },
+) {
+  const challenge = await db.challenge.findUnique({ where: { id } });
+  if (!challenge) throw new NotFoundError("Challenge not found");
+  if (challenge.creatorId !== userId) {
+    throw new ForbiddenError("Only the creator can update this challenge");
+  }
+
+  const data: { title?: string; description?: string | null } = {};
+  if (body.title !== undefined) data.title = body.title;
+  if (body.description !== undefined)
+    data.description = body.description ?? null;
+
+  const updated = await db.challenge.update({
+    where: { id },
+    data,
+    include: { badge: true, creator: true },
+  });
+
+  const uc = await db.userChallenge.findUnique({
+    where: { userId_challengeId: { userId, challengeId: id } },
+  });
+
+  const participantCount = await db.userChallenge.count({
+    where: { challengeId: id },
+  });
+
+  return {
+    data: toChallenge(
+      updated,
+      uc?.current ?? 0,
+      uc != null,
+      updated.creatorId === userId,
+      participantCount,
+    ),
+  };
+}
+
 export async function getChallenge(id: string, userId: string) {
   const challenge = await db.challenge.findUnique({
     where: { id },
@@ -158,7 +211,21 @@ export async function deleteChallenge(id: string, userId: string) {
     throw new ForbiddenError("Only the creator can delete this challenge");
   }
 
+  const participants = await db.userChallenge.findMany({
+    where: { challengeId: id },
+    select: { userId: true },
+  });
+  const participantIds = participants
+    .map((p) => p.userId)
+    .filter((uid) => uid !== userId);
+
   await db.challenge.delete({ where: { id } });
+
+  if (participantIds.length > 0) {
+    sendChallengeCancelledNotification(participantIds, challenge.title).catch(
+      () => {},
+    );
+  }
 }
 
 export async function joinChallenge(id: string, userId: string) {
@@ -230,7 +297,7 @@ export async function getChallengeProgress(id: string, userId: string) {
 export async function getChallengeLeaderboard(
   id: string,
   limit: number,
-  currentUserId: string
+  currentUserId: string,
 ) {
   const challenge = await db.challenge.findUnique({ where: { id } });
   if (!challenge) throw new NotFoundError("Challenge not found");

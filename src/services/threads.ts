@@ -14,7 +14,11 @@ function threadListInclude(userId: string) {
   } as const;
 }
 
-async function unlikeThread(tx: Prisma.TransactionClient, userId: string, threadId: string) {
+async function unlikeThread(
+  tx: Prisma.TransactionClient,
+  userId: string,
+  threadId: string,
+) {
   await tx.threadLike.delete({
     where: { userId_threadId: { userId, threadId } },
   });
@@ -22,9 +26,16 @@ async function unlikeThread(tx: Prisma.TransactionClient, userId: string, thread
   return false;
 }
 
-async function likeThread(tx: Prisma.TransactionClient, userId: string, threadId: string) {
+async function likeThread(
+  tx: Prisma.TransactionClient,
+  userId: string,
+  threadId: string,
+) {
   await tx.threadLike.create({ data: { userId, threadId } });
-  await tx.thread.update({ where: { id: threadId }, data: { likes: { increment: 1 } } });
+  await tx.thread.update({
+    where: { id: threadId },
+    data: { likes: { increment: 1 } },
+  });
   return true;
 }
 
@@ -35,7 +46,7 @@ export async function listThreads(
   filter: "all" | "popular" | "recent" | "mine" = "recent",
   search?: string,
   page = 1,
-  limit = 20
+  limit = 20,
 ) {
   const where = {
     deletedAt: null,
@@ -64,7 +75,10 @@ export async function listThreads(
     }),
   ]);
 
-  return { data: rows.map((t) => toThread(t, userId)), pagination: { total, page, limit } };
+  return {
+    data: rows.map((t) => toThread(t, userId)),
+    pagination: { total, page, limit },
+  };
 }
 
 export async function createThread(
@@ -72,7 +86,7 @@ export async function createThread(
   title: string,
   body: string,
   bookId?: string | null,
-  spoiler = false
+  spoiler = false,
 ) {
   if (bookId) {
     const book = await db.book.findUnique({ where: { id: bookId } });
@@ -118,8 +132,14 @@ export async function getThread(id: string, userId: string) {
   return toThreadDetail(thread as any, userId);
 }
 
-export async function postReply(userId: string, threadId: string, body: string) {
-  const thread = await db.thread.findFirst({ where: { id: threadId, deletedAt: null } });
+export async function postReply(
+  userId: string,
+  threadId: string,
+  body: string,
+) {
+  const thread = await db.thread.findFirst({
+    where: { id: threadId, deletedAt: null },
+  });
   if (!thread) throw new NotFoundError("Thread not found");
 
   const sanitizedBody = sanitizeHtml(body);
@@ -133,7 +153,9 @@ export async function postReply(userId: string, threadId: string, body: string) 
 }
 
 export async function toggleLike(userId: string, threadId: string) {
-  const thread = await db.thread.findFirst({ where: { id: threadId, deletedAt: null } });
+  const thread = await db.thread.findFirst({
+    where: { id: threadId, deletedAt: null },
+  });
   if (!thread) throw new NotFoundError("Thread not found");
 
   const existing = await db.threadLike.findUnique({
@@ -144,18 +166,65 @@ export async function toggleLike(userId: string, threadId: string) {
     ? await db.$transaction(async (tx) => unlikeThread(tx, userId, threadId))
     : await db.$transaction(async (tx) => likeThread(tx, userId, threadId));
 
-  const result = await db.$queryRaw`
+  const result = (await db.$queryRaw`
     SELECT likes FROM "Thread" WHERE id = ${threadId}
-  ` as [{ likes: number }];
+  `) as [{ likes: number }];
   const [{ likes }] = result;
 
   return { liked, likes };
 }
 
-export async function deleteThread(userId: string, threadId: string) {
-  const thread = await db.thread.findFirst({ where: { id: threadId, deletedAt: null } });
+export async function updateThread(
+  userId: string,
+  threadId: string,
+  title: string,
+  body: string,
+) {
+  const thread = await db.thread.findFirst({
+    where: { id: threadId, deletedAt: null },
+  });
   if (!thread) throw new NotFoundError("Thread not found");
-  if (thread.creatorId !== userId) throw new ForbiddenError("You are not the owner of this thread");
+  if (thread.creatorId !== userId)
+    throw new ForbiddenError("You are not the owner of this thread");
+
+  const sanitizedBody = sanitizeHtml(body);
+  const sanitizedTitle = sanitizeHtml(title);
+  const preview = sanitizedBody.slice(0, 140);
+
+  const updated = await db.thread.update({
+    where: { id: threadId },
+    data: { title: sanitizedTitle, body: sanitizedBody, preview },
+    include: threadListInclude(userId),
+  });
+
+  return toThread(updated, userId);
+}
+
+export async function deleteReply(
+  userId: string,
+  threadId: string,
+  replyId: string,
+) {
+  const reply = await db.threadReply.findFirst({
+    where: { id: replyId, threadId, deletedAt: null },
+  });
+  if (!reply) throw new NotFoundError("Reply not found");
+  if (reply.userId !== userId)
+    throw new ForbiddenError("You are not the owner of this reply");
+
+  await db.threadReply.update({
+    where: { id: replyId },
+    data: { deletedAt: new Date() },
+  });
+}
+
+export async function deleteThread(userId: string, threadId: string) {
+  const thread = await db.thread.findFirst({
+    where: { id: threadId, deletedAt: null },
+  });
+  if (!thread) throw new NotFoundError("Thread not found");
+  if (thread.creatorId !== userId)
+    throw new ForbiddenError("You are not the owner of this thread");
 
   await db.thread.update({
     where: { id: threadId },

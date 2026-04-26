@@ -12,14 +12,27 @@ interface CreateThreadBody {
   spoiler?: boolean;
 }
 
+interface UpdateThreadBody {
+  title: string;
+  body: string;
+}
+
 interface ReplyBody {
   body: string;
 }
 
 /* ─── Route handlers ─── */
 
-async function listThreadsHandler(request: FastifyRequest, reply: FastifyReply) {
-  const { filter = "recent", search, page = 1, limit = 20 } = request.query as {
+async function listThreadsHandler(
+  request: FastifyRequest,
+  reply: FastifyReply,
+) {
+  const {
+    filter = "recent",
+    search,
+    page = 1,
+    limit = 20,
+  } = request.query as {
     filter?: "all" | "popular" | "recent" | "mine";
     search?: string;
     page?: number;
@@ -27,18 +40,38 @@ async function listThreadsHandler(request: FastifyRequest, reply: FastifyReply) 
   };
   const user = await resolveUser(request);
   try {
-    const result = await threadsService.listThreads(user.id, filter, search, page, limit);
+    const result = await threadsService.listThreads(
+      user.id,
+      filter,
+      search,
+      page,
+      limit,
+    );
     return reply.send(result);
   } catch (err) {
     return handleServiceError(reply, err);
   }
 }
 
-async function createThreadHandler(request: FastifyRequest, reply: FastifyReply) {
-  const { title, body, bookId, spoiler = false } = request.body as CreateThreadBody;
+async function createThreadHandler(
+  request: FastifyRequest,
+  reply: FastifyReply,
+) {
+  const {
+    title,
+    body,
+    bookId,
+    spoiler = false,
+  } = request.body as CreateThreadBody;
   const user = await resolveUser(request);
   try {
-    const result = await threadsService.createThread(user.id, title, body, bookId, spoiler);
+    const result = await threadsService.createThread(
+      user.id,
+      title,
+      body,
+      bookId,
+      spoiler,
+    );
     return reply.code(201).send(result);
   } catch (err) {
     return handleServiceError(reply, err);
@@ -79,11 +112,46 @@ async function toggleLikeHandler(request: FastifyRequest, reply: FastifyReply) {
   }
 }
 
-async function deleteThreadHandler(request: FastifyRequest, reply: FastifyReply) {
+async function updateThreadHandler(
+  request: FastifyRequest,
+  reply: FastifyReply,
+) {
+  const { id } = request.params as { id: string };
+  const { title, body } = request.body as UpdateThreadBody;
+  const user = await resolveUser(request);
+  try {
+    const result = await threadsService.updateThread(user.id, id, title, body);
+    return reply.send(result);
+  } catch (err) {
+    return handleServiceError(reply, err);
+  }
+}
+
+async function deleteThreadHandler(
+  request: FastifyRequest,
+  reply: FastifyReply,
+) {
   const { id } = request.params as { id: string };
   const user = await resolveUser(request);
   try {
     await threadsService.deleteThread(user.id, id);
+    return reply.code(204).send();
+  } catch (err) {
+    return handleServiceError(reply, err);
+  }
+}
+
+async function deleteReplyHandler(
+  request: FastifyRequest,
+  reply: FastifyReply,
+) {
+  const { id: threadId, replyId } = request.params as {
+    id: string;
+    replyId: string;
+  };
+  const user = await resolveUser(request);
+  try {
+    await threadsService.deleteReply(user.id, threadId, replyId);
     return reply.code(204).send();
   } catch (err) {
     return handleServiceError(reply, err);
@@ -95,6 +163,7 @@ async function deleteThreadHandler(request: FastifyRequest, reply: FastifyReply)
 export async function threadsRoute(app: FastifyInstance) {
   app.get("/threads", {
     schema: {
+      operationId: "listThreads",
       tags: ["discussions"],
       summary: "List discussion threads",
       security: [{ bearerAuth: [] }],
@@ -110,6 +179,7 @@ export async function threadsRoute(app: FastifyInstance) {
 
   app.post("/threads", {
     schema: {
+      operationId: "createThread",
       tags: ["discussions"],
       summary: "Create a new discussion thread",
       security: [{ bearerAuth: [] }],
@@ -135,6 +205,7 @@ export async function threadsRoute(app: FastifyInstance) {
 
   app.get("/threads/:id", {
     schema: {
+      operationId: "getThread",
       tags: ["discussions"],
       summary: "Get a thread with its replies",
       security: [{ bearerAuth: [] }],
@@ -151,6 +222,7 @@ export async function threadsRoute(app: FastifyInstance) {
 
   app.post("/threads/:id/replies", {
     schema: {
+      operationId: "postReply",
       tags: ["discussions"],
       summary: "Post a reply to a thread",
       security: [{ bearerAuth: [] }],
@@ -174,6 +246,7 @@ export async function threadsRoute(app: FastifyInstance) {
 
   app.post("/threads/:id/like", {
     schema: {
+      operationId: "toggleLike",
       tags: ["discussions"],
       summary: "Toggle like on a thread",
       security: [{ bearerAuth: [] }],
@@ -188,8 +261,35 @@ export async function threadsRoute(app: FastifyInstance) {
     handler: toggleLikeHandler,
   });
 
+  app.patch("/threads/:id", {
+    schema: {
+      operationId: "updateThread",
+      tags: ["discussions"],
+      summary: "Update a thread (only the creator may do this)",
+      security: [{ bearerAuth: [] }],
+      params: { $ref: "IdParam" },
+      body: {
+        type: "object",
+        required: ["title", "body"],
+        properties: {
+          title: { type: "string", minLength: 1, maxLength: 200 },
+          body: { type: "string", minLength: 1, maxLength: 10000 },
+        },
+      },
+      response: {
+        200: { $ref: "Thread" },
+        401: { $ref: "ApiError" },
+        403: { $ref: "ApiError", description: "Not the thread owner" },
+        404: { $ref: "ApiError" },
+      },
+    },
+    preHandler: [app.authenticate],
+    handler: updateThreadHandler,
+  });
+
   app.delete("/threads/:id", {
     schema: {
+      operationId: "deleteThread",
       tags: ["discussions"],
       summary: "Soft-delete a thread (only the creator may do this)",
       security: [{ bearerAuth: [] }],
@@ -203,5 +303,30 @@ export async function threadsRoute(app: FastifyInstance) {
     },
     preHandler: [app.authenticate],
     handler: deleteThreadHandler,
+  });
+
+  app.delete("/threads/:id/replies/:replyId", {
+    schema: {
+      operationId: "deleteReply",
+      tags: ["discussions"],
+      summary: "Soft-delete a reply (only the author may do this)",
+      security: [{ bearerAuth: [] }],
+      params: {
+        type: "object",
+        required: ["id", "replyId"],
+        properties: {
+          id: { type: "string" },
+          replyId: { type: "string" },
+        },
+      },
+      response: {
+        204: { type: "null", description: "Deleted successfully" },
+        401: { $ref: "ApiError" },
+        403: { $ref: "ApiError", description: "Not the reply owner" },
+        404: { $ref: "ApiError" },
+      },
+    },
+    preHandler: [app.authenticate],
+    handler: deleteReplyHandler,
   });
 }

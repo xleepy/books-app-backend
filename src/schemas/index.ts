@@ -71,13 +71,21 @@ export const ThreadSchema = {
 export const ThreadReplySchema = {
   $id: "ThreadReply",
   type: "object",
-  required: ["id", "body", "timeAgo", "creatorName", "creatorAvatarHue"],
+  required: [
+    "id",
+    "body",
+    "timeAgo",
+    "creatorName",
+    "creatorAvatarHue",
+    "isOwner",
+  ],
   properties: {
     id: { type: "string" },
     body: { type: "string" },
     timeAgo: { type: "string" },
     creatorName: { type: "string" },
     creatorAvatarHue: { type: "integer" },
+    isOwner: { type: "boolean" },
   },
 } as const;
 
