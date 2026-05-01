@@ -20,6 +20,7 @@ async function buildPersonalizedFeed(
   const candidates = await db.book.findMany({
     where,
     include: bookInclude,
+    orderBy: { id: "asc" },
     take: MAX_FEED_CANDIDATES,
   });
 

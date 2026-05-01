@@ -5,7 +5,7 @@ export default defineConfig({
     globalSetup: ["./tests/global-setup.ts"],
     fileParallelism: false,
     env: {
-      DATABASE_URL: "postgresql://booksapp:booksapp@localhost:5432/booksapp_test",
+      DATABASE_URL: "postgresql://booksapp:booksapp@localhost:5433/booksapp_test",
     },
   },
 });
