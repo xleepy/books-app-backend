@@ -27,8 +27,12 @@ interface PreferencesBody {
 
 async function getMeHandler(request: FastifyRequest, reply: FastifyReply) {
   const user = await resolveUser(request);
-  const result = await meService.getProfile(user);
-  return reply.send(result);
+  try {
+    const result = await meService.getProfile(user);
+    return reply.send(result);
+  } catch (err) {
+    return handleServiceError(reply, err);
+  }
 }
 
 async function patchMeHandler(request: FastifyRequest, reply: FastifyReply) {
@@ -110,6 +114,7 @@ async function getCurrentBookHandler(
 export async function meRoute(app: FastifyInstance) {
   app.get("/me", {
     schema: {
+      operationId: "getMe",
       tags: ["me"],
       summary:
         "Get authenticated user's profile, reading stats, and preferences",
@@ -125,6 +130,7 @@ export async function meRoute(app: FastifyInstance) {
 
   app.patch("/me", {
     schema: {
+      operationId: "patchMe",
       tags: ["me"],
       summary: "Update profile fields",
       security: [{ bearerAuth: [] }],
@@ -147,6 +153,7 @@ export async function meRoute(app: FastifyInstance) {
 
   app.get("/me/preferences", {
     schema: {
+      operationId: "getMePreferences",
       tags: ["me"],
       summary: "Get notification and reading preferences",
       security: [{ bearerAuth: [] }],
@@ -161,6 +168,7 @@ export async function meRoute(app: FastifyInstance) {
 
   app.put("/me/preferences", {
     schema: {
+      operationId: "putMePreferences",
       tags: ["me"],
       summary: "Replace preferences (full update)",
       security: [{ bearerAuth: [] }],
@@ -176,6 +184,7 @@ export async function meRoute(app: FastifyInstance) {
 
   app.post("/me/password", {
     schema: {
+      operationId: "postMePassword",
       tags: ["me"],
       summary:
         "Change password (email/password users only) — delegates to Supabase client-side",
@@ -203,6 +212,7 @@ export async function meRoute(app: FastifyInstance) {
 
   app.get("/me/badges", {
     schema: {
+      operationId: "getMeBadges",
       tags: ["me"],
       summary: "Get authenticated user's earned badges",
       security: [{ bearerAuth: [] }],
@@ -217,6 +227,7 @@ export async function meRoute(app: FastifyInstance) {
 
   app.get("/me/current-book", {
     schema: {
+      operationId: "getMeCurrentBook",
       tags: ["me"],
       summary: "Get the user's current reading book (the one marked isCurrent)",
       security: [{ bearerAuth: [] }],
@@ -232,6 +243,7 @@ export async function meRoute(app: FastifyInstance) {
 
   app.post("/me/push-token", {
     schema: {
+      operationId: "postMePushToken",
       tags: ["me"],
       summary: "Register a push notification token for this device",
       security: [{ bearerAuth: [] }],
@@ -278,6 +290,7 @@ export async function meRoute(app: FastifyInstance) {
 
   app.delete("/me/push-token", {
     schema: {
+      operationId: "deleteMePushToken",
       tags: ["me"],
       summary: "Unregister a push notification token",
       security: [{ bearerAuth: [] }],

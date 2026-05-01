@@ -190,14 +190,20 @@ async function progressBookChallenges(
     },
   });
 
-  for (const challenge of activeChallenges) {
-    const uc = await tx.userChallenge.upsert({
-      where: { userId_challengeId: { userId, challengeId: challenge.id } },
-      create: { userId, challengeId: challenge.id, current: 1 },
-      update: { current: { increment: 1 } },
-    });
+  if (activeChallenges.length === 0) return;
 
-    await maybeCompleteChallenge(tx, userId, challenge, uc, today);
+  const results = await Promise.all(
+    activeChallenges.map((challenge) =>
+      tx.userChallenge.upsert({
+        where: { userId_challengeId: { userId, challengeId: challenge.id } },
+        create: { userId, challengeId: challenge.id, current: 1 },
+        update: { current: { increment: 1 } },
+      }),
+    ),
+  );
+
+  for (let i = 0; i < activeChallenges.length; i++) {
+    await maybeCompleteChallenge(tx, userId, activeChallenges[i], results[i], today);
   }
 }
 
@@ -217,19 +223,51 @@ async function progressPageChallenges(
     },
   });
 
-  for (const challenge of activeChallenges) {
-    const uc = await tx.userChallenge.upsert({
-      where: { userId_challengeId: { userId, challengeId: challenge.id } },
-      create: {
-        userId,
-        challengeId: challenge.id,
-        current: pagesDelta,
-      },
-      update: { current: { increment: pagesDelta } },
-    });
+  if (activeChallenges.length === 0) return;
 
-    await maybeCompleteChallenge(tx, userId, challenge, uc, today);
+  const results = await Promise.all(
+    activeChallenges.map((challenge) =>
+      tx.userChallenge.upsert({
+        where: { userId_challengeId: { userId, challengeId: challenge.id } },
+        create: {
+          userId,
+          challengeId: challenge.id,
+          current: pagesDelta,
+        },
+        update: { current: { increment: pagesDelta } },
+      }),
+    ),
+  );
+
+  for (let i = 0; i < activeChallenges.length; i++) {
+    await maybeCompleteChallenge(tx, userId, activeChallenges[i], results[i], today);
   }
+}
+
+async function _onBookFinished(
+  tx: TxClient,
+  userId: string,
+  book: { pageCount?: number | null },
+  today: Date,
+): Promise<void> {
+  const pageCount = book.pageCount ?? 0;
+
+  await incrementUserStats(tx, userId, pageCount);
+
+  const previousBooks = await tx.libraryItem.count({
+    where: { userId, status: "finished" },
+  });
+
+  await awardXpAndLevelUp(
+    tx,
+    userId,
+    "book_finished",
+    XP_VALUES.book_finished,
+    { pageCount },
+  );
+  await maybeAwardFirstBookXp(tx, userId, previousBooks);
+  await updateReadingStreak(tx, userId, today);
+  await progressBookChallenges(tx, userId, today);
 }
 
 export async function onBookFinished(
@@ -237,27 +275,9 @@ export async function onBookFinished(
   book: { pageCount?: number | null },
 ): Promise<void> {
   const today = new Date();
-  const pageCount = book.pageCount ?? 0;
-
   await db.$transaction(async (tx) => {
-    await incrementUserStats(tx, userId, pageCount);
-
-    const previousBooks = await tx.libraryItem.count({
-      where: { userId, status: "finished" },
-    });
-
-    await awardXpAndLevelUp(
-      tx,
-      userId,
-      "book_finished",
-      XP_VALUES.book_finished,
-      { pageCount },
-    );
-    await maybeAwardFirstBookXp(tx, userId, previousBooks);
-    await updateReadingStreak(tx, userId, today);
-    await progressBookChallenges(tx, userId, today);
+    await _onBookFinished(tx, userId, book, today);
   });
-
   await checkAndAwardBadges(userId, "book_finished");
 }
 
@@ -357,37 +377,47 @@ export async function updateLibraryItem(
       ? new Date()
       : undefined;
 
-  const item = await db.libraryItem.update({
-    where: { userId_bookId: { userId, bookId } },
-    data: {
-      ...(status !== undefined && { status }),
-      ...(resolvedProgressPct !== undefined && {
-        progressPct: resolvedProgressPct,
-      }),
-      ...(resolvedCurrentPage !== undefined && {
-        currentPage: resolvedCurrentPage,
-      }),
-      ...(timeLeftMin !== undefined && { timeLeftMin }),
-      ...(finishedAt && { finishedAt }),
-    },
-    include: { book: { include: bookInclude } },
-  });
-
   const pagesDelta =
     resolvedCurrentPage !== undefined
       ? resolvedCurrentPage - (existing.currentPage ?? 0)
       : 0;
 
-  if (pagesDelta > 0) {
+  const transitioningToFinished =
+    status === "finished" && existing.status !== "finished";
+
+  const item = await db.$transaction(async (tx) => {
+    const updated = await tx.libraryItem.update({
+      where: { userId_bookId: { userId, bookId } },
+      data: {
+        ...(status !== undefined && { status }),
+        ...(resolvedProgressPct !== undefined && {
+          progressPct: resolvedProgressPct,
+        }),
+        ...(resolvedCurrentPage !== undefined && {
+          currentPage: resolvedCurrentPage,
+        }),
+        ...(timeLeftMin !== undefined && { timeLeftMin }),
+        ...(finishedAt && { finishedAt }),
+      },
+      include: { book: { include: bookInclude } },
+    });
+
     const today = new Date();
-    await db.$transaction(async (tx) => {
+
+    if (pagesDelta > 0) {
       await updateReadingStreak(tx, userId, today);
       await progressPageChallenges(tx, userId, pagesDelta, today);
-    });
-  }
+    }
 
-  if (status === "finished" && existing.status !== "finished") {
-    await onBookFinished(userId, item.book);
+    if (transitioningToFinished) {
+      await _onBookFinished(tx, userId, updated.book, today);
+    }
+
+    return updated;
+  });
+
+  if (transitioningToFinished) {
+    await checkAndAwardBadges(userId, "book_finished");
   }
 
   return toLibraryBook(item);

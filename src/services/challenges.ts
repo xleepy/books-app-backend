@@ -107,28 +107,32 @@ export async function createChallenge(
     throw new BadRequestError("activeTo must be after activeFrom");
   }
 
-  const challenge = await db.challenge.create({
-    data: {
-      slug: generateSlug(body.title),
-      title: body.title,
-      description: body.description ?? null,
-      variant: body.variant,
-      metric: body.metric,
-      target: body.target,
-      creatorId: userId,
-      badgeId: body.badgeId ?? null,
-      activeFrom,
-      activeTo,
-    },
-    include: { badge: true, creator: true },
-  });
+  const challenge = await db.$transaction(async (tx) => {
+    const created = await tx.challenge.create({
+      data: {
+        slug: generateSlug(body.title),
+        title: body.title,
+        description: body.description ?? null,
+        variant: body.variant,
+        metric: body.metric,
+        target: body.target,
+        creatorId: userId,
+        badgeId: body.badgeId ?? null,
+        activeFrom,
+        activeTo,
+      },
+      include: { badge: true, creator: true },
+    });
 
-  await db.userChallenge.create({
-    data: {
-      userId,
-      challengeId: challenge.id,
-      current: 0,
-    },
+    await tx.userChallenge.create({
+      data: {
+        userId,
+        challengeId: created.id,
+        current: 0,
+      },
+    });
+
+    return created;
   });
 
   return { data: toChallenge(challenge, 0, true, true, 1) };
@@ -232,35 +236,28 @@ export async function joinChallenge(id: string, userId: string) {
   const challenge = await db.challenge.findUnique({ where: { id } });
   if (!challenge) throw new NotFoundError("Challenge not found");
 
-  const existing = await db.userChallenge.findUnique({
-    where: { userId_challengeId: { userId, challengeId: id } },
-  });
+  const uc = await db.$transaction(async (tx) => {
+    const existing = await tx.userChallenge.findUnique({
+      where: { userId_challengeId: { userId, challengeId: id } },
+    });
 
-  if (existing) {
-    return {
+    if (existing) return existing;
+
+    return tx.userChallenge.create({
       data: {
+        userId,
         challengeId: id,
-        current: existing.current,
-        completed: existing.completedAt != null,
-        completedAt: existing.completedAt?.toISOString() ?? null,
+        current: 0,
       },
-    };
-  }
-
-  const uc = await db.userChallenge.create({
-    data: {
-      userId,
-      challengeId: id,
-      current: 0,
-    },
+    });
   });
 
   return {
     data: {
       challengeId: id,
       current: uc.current,
-      completed: false,
-      completedAt: null,
+      completed: uc.completedAt != null,
+      completedAt: uc.completedAt?.toISOString() ?? null,
     },
   };
 }
@@ -271,6 +268,11 @@ export async function leaveChallenge(id: string, userId: string) {
   if (challenge.creatorId === userId) {
     throw new ForbiddenError("Creator cannot leave their own challenge");
   }
+
+  const existing = await db.userChallenge.findUnique({
+    where: { userId_challengeId: { userId, challengeId: id } },
+  });
+  if (!existing) throw new NotFoundError("Not joined this challenge");
 
   await db.userChallenge.delete({
     where: { userId_challengeId: { userId, challengeId: id } },

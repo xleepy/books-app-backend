@@ -93,6 +93,7 @@ async function removeFromLibraryHandler(request: FastifyRequest, reply: FastifyR
 export async function libraryRoute(app: FastifyInstance) {
   app.get("/library/stats", {
     schema: {
+      operationId: "getLibraryStats",
       tags: ["library"],
       summary: "Counts of the authenticated user's books by reading status",
       security: [{ bearerAuth: [] }],
@@ -107,6 +108,7 @@ export async function libraryRoute(app: FastifyInstance) {
 
   app.get("/library", {
     schema: {
+      operationId: "getLibrary",
       tags: ["library"],
       summary: "Get the authenticated user's saved books",
       security: [{ bearerAuth: [] }],
@@ -132,6 +134,7 @@ export async function libraryRoute(app: FastifyInstance) {
 
   app.post("/library", {
     schema: {
+      operationId: "postLibrary",
       tags: ["library"],
       summary: "Add a book to the authenticated user's library",
       security: [{ bearerAuth: [] }],
@@ -156,6 +159,7 @@ export async function libraryRoute(app: FastifyInstance) {
 
   app.patch("/library/:bookId", {
     schema: {
+      operationId: "patchLibraryByBookId",
       tags: ["library"],
       summary: "Update reading status, progress, or current book flag",
       security: [{ bearerAuth: [] }],
@@ -181,6 +185,7 @@ export async function libraryRoute(app: FastifyInstance) {
 
   app.delete("/library/:bookId", {
     schema: {
+      operationId: "deleteLibraryByBookId",
       tags: ["library"],
       summary: "Remove a book from the authenticated user's library",
       security: [{ bearerAuth: [] }],

@@ -14,6 +14,7 @@ export async function authRoute(app: FastifyInstance) {
   // actual token invalidation happens via Supabase refresh token revocation).
   app.post("/auth/logout", {
     schema: {
+      operationId: "postAuthLogout",
       tags: ["auth"],
       summary: "Log out (client must discard tokens; refresh token revocation handled client-side via Supabase)",
       security: [{ bearerAuth: [] }],

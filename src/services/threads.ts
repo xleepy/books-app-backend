@@ -158,18 +158,22 @@ export async function toggleLike(userId: string, threadId: string) {
   });
   if (!thread) throw new NotFoundError("Thread not found");
 
-  const existing = await db.threadLike.findUnique({
-    where: { userId_threadId: { userId, threadId } },
+  const { liked, likes } = await db.$transaction(async (tx) => {
+    const existing = await tx.threadLike.findUnique({
+      where: { userId_threadId: { userId, threadId } },
+    });
+
+    const liked = existing
+      ? await unlikeThread(tx, userId, threadId)
+      : await likeThread(tx, userId, threadId);
+
+    const result = (await tx.$queryRaw`
+      SELECT likes FROM "Thread" WHERE id = ${threadId}
+    `) as [{ likes: number }];
+    const [{ likes }] = result;
+
+    return { liked, likes };
   });
-
-  const liked = existing
-    ? await db.$transaction(async (tx) => unlikeThread(tx, userId, threadId))
-    : await db.$transaction(async (tx) => likeThread(tx, userId, threadId));
-
-  const result = (await db.$queryRaw`
-    SELECT likes FROM "Thread" WHERE id = ${threadId}
-  `) as [{ likes: number }];
-  const [{ likes }] = result;
 
   return { liked, likes };
 }

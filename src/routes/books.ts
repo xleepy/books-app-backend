@@ -77,6 +77,7 @@ async function listSubjectsHandler(
 export async function booksRoute(app: FastifyInstance) {
   app.get("/books/feed", {
     schema: {
+      operationId: "getBooksFeed",
       tags: ["books"],
       summary:
         "Swipe-deck feed (cursor-paginated, personalized by liked-book subjects for authed users)",
@@ -91,6 +92,7 @@ export async function booksRoute(app: FastifyInstance) {
 
   app.get("/books", {
     schema: {
+      operationId: "getBooks",
       tags: ["books"],
       summary: "List books (paginated, searchable, filterable by tag)",
       querystring: {
@@ -117,6 +119,7 @@ export async function booksRoute(app: FastifyInstance) {
 
   app.get("/books/:id", {
     schema: {
+      operationId: "getBooksById",
       tags: ["books"],
       summary: "Get a single book by ID",
       params: { $ref: "IdParam" },
@@ -130,6 +133,7 @@ export async function booksRoute(app: FastifyInstance) {
 
   app.get("/books/:id/recommendations", {
     schema: {
+      operationId: "getBooksByIdRecommendations",
       tags: ["books"],
       summary:
         "Get recommended books similar to a given book (subject overlap)",
@@ -145,6 +149,7 @@ export async function booksRoute(app: FastifyInstance) {
 
   app.get("/subjects", {
     schema: {
+      operationId: "getSubjects",
       tags: ["books"],
       summary: "List all available book subjects (genres)",
       response: {

@@ -70,7 +70,8 @@ export async function getBadges(userId: string) {
 
 export async function getCurrentBook(userId: string) {
   const item = await db.libraryItem.findFirst({
-    where: { userId, isCurrent: true },
+    where: { userId, status: "reading" },
+    orderBy: { addedAt: "desc" },
     include: { book: { include: bookInclude } },
   });
 

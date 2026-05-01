@@ -28,6 +28,7 @@ async function recordSwipeHandler(request: FastifyRequest, reply: FastifyReply) 
 export async function swipesRoute(app: FastifyInstance) {
   app.post("/swipes", {
     schema: {
+      operationId: "postSwipes",
       tags: ["swipes"],
       summary: "Record a swipe on a book (left = pass, right = like)",
       security: [{ bearerAuth: [] }],

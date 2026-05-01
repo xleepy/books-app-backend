@@ -40,6 +40,7 @@ async function createReviewHandler(request: FastifyRequest, reply: FastifyReply)
 export async function reviewsRoute(app: FastifyInstance) {
   app.get("/books/:id/reviews", {
     schema: {
+      operationId: "getBooksByIdReviews",
       tags: ["reviews"],
       summary: "List reviews for a book",
       params: { $ref: "IdParam" },
@@ -54,6 +55,7 @@ export async function reviewsRoute(app: FastifyInstance) {
 
   app.post("/books/:id/reviews", {
     schema: {
+      operationId: "postBooksByIdReviews",
       tags: ["reviews"],
       summary: "Submit a review for a book",
       security: [{ bearerAuth: [] }],
