@@ -83,6 +83,10 @@ afterEach(async () => {
         bestStreak: 0,
         streakLastDate: null,
         weekDays: [false, false, false, false, false, false, false],
+        pagesRead: 0,
+        booksFinished: 0,
+        hoursRead: 0,
+        xpTotal: 0,
       },
     });
   }
@@ -422,6 +426,62 @@ describe("PATCH /library/:bookId", () => {
 
     const user = await db.user.findUnique({ where: { authId: TEST_USER.sub } });
     expect(user!.streak).toBe(1);
+  });
+
+  test("200 — currentPage increment updates aggregate pagesRead and hoursRead", async () => {
+    await app.inject({
+      method: "POST",
+      url: "/library",
+      payload: { bookId, status: "reading" },
+    });
+
+    // First update: 50 pages
+    await app.inject({
+      method: "PATCH",
+      url: `/library/${bookId}`,
+      payload: { currentPage: 50 },
+    });
+
+    // Second update: 120 pages (delta 70)
+    const res = await app.inject({
+      method: "PATCH",
+      url: `/library/${bookId}`,
+      payload: { currentPage: 120 },
+    });
+
+    expect(res.statusCode).toBe(200);
+
+    const user = await db.user.findUnique({ where: { authId: TEST_USER.sub } });
+    expect(user!.pagesRead).toBe(120); // 50 + 70
+    expect(Number(user!.hoursRead)).toBe(4.0); // 120 / 30 = 4.0
+  });
+
+  test("200 — marking finished only adds remaining pages to aggregate stats", async () => {
+    await app.inject({
+      method: "POST",
+      url: "/library",
+      payload: { bookId, status: "reading" },
+    });
+
+    // Track 120 pages
+    await app.inject({
+      method: "PATCH",
+      url: `/library/${bookId}`,
+      payload: { currentPage: 120 },
+    });
+
+    // Mark finished — should add remaining 180, not full 300
+    const res = await app.inject({
+      method: "PATCH",
+      url: `/library/${bookId}`,
+      payload: { status: "finished" },
+    });
+
+    expect(res.statusCode).toBe(200);
+
+    const user = await db.user.findUnique({ where: { authId: TEST_USER.sub } });
+    expect(user!.pagesRead).toBe(300); // 120 incremental + 180 remaining
+    expect(user!.booksFinished).toBe(1);
   });
 
   test("200 — streak increments after a gap day", async () => {

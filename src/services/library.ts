@@ -14,14 +14,14 @@ type TxClient = Prisma.TransactionClient;
 async function incrementUserStats(
   tx: TxClient,
   userId: string,
-  pageCount: number,
+  pagesToAdd: number,
 ) {
   await tx.user.update({
     where: { id: userId },
     data: {
       booksFinished: { increment: 1 },
-      pagesRead: { increment: pageCount },
-      hoursRead: { increment: Math.round((pageCount / 30) * 100) / 100 },
+      pagesRead: { increment: pagesToAdd },
+      hoursRead: { increment: Math.round((pagesToAdd / 30) * 100) / 100 },
     },
   });
 }
@@ -249,10 +249,12 @@ async function _onBookFinished(
   userId: string,
   book: { pageCount?: number | null },
   today: Date,
+  pagesAlreadyCounted = 0,
 ): Promise<void> {
   const pageCount = book.pageCount ?? 0;
+  const remainingPages = Math.max(0, pageCount - pagesAlreadyCounted);
 
-  await incrementUserStats(tx, userId, pageCount);
+  await incrementUserStats(tx, userId, remainingPages);
 
   const previousBooks = await tx.libraryItem.count({
     where: { userId, status: "finished" },
@@ -407,10 +409,25 @@ export async function updateLibraryItem(
     if (pagesDelta > 0) {
       await updateReadingStreak(tx, userId, today);
       await progressPageChallenges(tx, userId, pagesDelta, today);
+      await tx.user.update({
+        where: { id: userId },
+        data: {
+          pagesRead: { increment: pagesDelta },
+          hoursRead: { increment: Math.round((pagesDelta / 30) * 100) / 100 },
+        },
+      });
     }
 
     if (transitioningToFinished) {
-      await _onBookFinished(tx, userId, updated.book, today);
+      const pagesAlreadyCounted =
+        resolvedCurrentPage ?? (existing.currentPage ?? 0);
+      await _onBookFinished(
+        tx,
+        userId,
+        updated.book,
+        today,
+        pagesAlreadyCounted,
+      );
     }
 
     return updated;

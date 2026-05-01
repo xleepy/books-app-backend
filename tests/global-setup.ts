@@ -2,8 +2,13 @@ import { Client } from "pg";
 import { execSync } from "node:child_process";
 import path from "node:path";
 
-const ADMIN_URL = "postgresql://booksapp:booksapp@localhost:5432/booksapp";
-const TEST_DB_URL = "postgresql://booksapp:booksapp@localhost:5432/booksapp_test";
+const dbUrl = new URL(
+  process.env.DATABASE_URL ??
+    "postgresql://booksapp:booksapp@localhost:5433/booksapp_test",
+);
+
+const ADMIN_URL = `postgresql://${decodeURIComponent(dbUrl.username)}:${decodeURIComponent(dbUrl.password)}@${dbUrl.hostname}:${dbUrl.port}/booksapp`;
+const TEST_DB_URL = `postgresql://${decodeURIComponent(dbUrl.username)}:${decodeURIComponent(dbUrl.password)}@${dbUrl.hostname}:${dbUrl.port}/booksapp_test`;
 const ROOT = path.resolve(__dirname, "..");
 
 export async function setup() {
