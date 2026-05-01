@@ -67,6 +67,21 @@ async function maybeAwardFirstBookXp(
   });
 }
 
+function toDateOnlyUTC(d: Date): Date {
+  return new Date(
+    Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()),
+  );
+}
+
+function getIsoWeekStart(d: Date): Date {
+  const date = new Date(d);
+  const day = date.getDay();
+  const mondayOffset = day === 0 ? -6 : 1 - day;
+  date.setDate(date.getDate() + mondayOffset);
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+
 async function updateReadingStreak(tx: TxClient, userId: string, today: Date) {
   const user = await tx.user.findUnique({ where: { id: userId } });
   if (!user) return;
@@ -76,16 +91,14 @@ async function updateReadingStreak(tx: TxClient, userId: string, today: Date) {
   const prevDate = user.streakLastDate;
 
   if (prevDate) {
-    const prevDay = new Date(
-      prevDate.getFullYear(),
-      prevDate.getMonth(),
-      prevDate.getDate(),
-    );
+    const prevDay = toDateOnlyUTC(prevDate);
+    const todayDay = toDateOnlyUTC(today);
     const diff = Math.round(
-      (today.getTime() - prevDay.getTime()) / (24 * 60 * 60 * 1000),
+      (todayDay.getTime() - prevDay.getTime()) / (24 * 60 * 60 * 1000),
     );
     if (diff === 0) {
-      // already counted today
+      // already counted today — nothing to do
+      return;
     } else if (diff === 1) {
       newStreak = user.streak + 1;
     } else {
@@ -95,7 +108,15 @@ async function updateReadingStreak(tx: TxClient, userId: string, today: Date) {
     newStreak = 1;
   }
 
-  const weekDays = [...user.weekDays] as boolean[];
+  // Week rollover: reset weekDays if we've crossed into a new ISO week
+  let weekDays = [...user.weekDays] as boolean[];
+  const weekStart = getIsoWeekStart(today);
+  if (user.streakLastDate) {
+    const prevWeekStart = getIsoWeekStart(toDateOnlyUTC(user.streakLastDate));
+    if (weekStart > prevWeekStart) {
+      weekDays = weekDays.map(() => false);
+    }
+  }
   weekDays[isoDow] = true;
 
   await tx.user.update({
@@ -107,6 +128,32 @@ async function updateReadingStreak(tx: TxClient, userId: string, today: Date) {
       weekDays,
     },
   });
+
+  // Award 50 XP + On Fire badge when crossing the 7-day milestone (once per streak run)
+  const crossedSevenDay = newStreak > user.streak && newStreak % 7 === 0;
+  if (crossedSevenDay) {
+    await awardXpAndLevelUp(
+      tx,
+      userId,
+      "streak_milestone",
+      XP_VALUES.streak_milestone,
+      {
+        streakDays: 7,
+      },
+    );
+
+    const badge = await tx.badge.findUnique({ where: { slug: "on-fire" } });
+    if (badge) {
+      const existing = await tx.userBadge.findUnique({
+        where: { userId_badgeId: { userId, badgeId: badge.id } },
+      });
+      if (!existing) {
+        await tx.userBadge.create({
+          data: { userId, badgeId: badge.id },
+        });
+      }
+    }
+  }
 }
 
 async function maybeCompleteChallenge(
@@ -334,6 +381,7 @@ export async function updateLibraryItem(
   if (pagesDelta > 0) {
     const today = new Date();
     await db.$transaction(async (tx) => {
+      await updateReadingStreak(tx, userId, today);
       await progressPageChallenges(tx, userId, pagesDelta, today);
     });
   }
