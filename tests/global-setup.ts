@@ -23,6 +23,9 @@ export async function setup() {
     env: { ...process.env, DATABASE_URL: TEST_DB_URL },
     stdio: "inherit",
   });
+
+  // Point the test runner to the freshly migrated test database.
+  process.env.DATABASE_URL = TEST_DB_URL;
 }
 
 export async function teardown() {

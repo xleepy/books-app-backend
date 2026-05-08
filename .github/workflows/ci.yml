@@ -75,4 +75,4 @@ jobs:
       - name: Run integration tests
         run: npm test
         env:
-          DATABASE_URL: postgresql://booksapp:booksapp@localhost:5432/booksapp
+          DATABASE_URL: postgresql://booksapp:booksapp@localhost:5432/booksapp_test
