@@ -23,7 +23,7 @@ services:
       - "3000:3000"
     environment:
       DATABASE_URL: postgresql://booksapp:booksapp@postgres:5432/booksapp?schema=public
-      SUPABASE_JWT_SECRET: ${SUPABASE_JWT_SECRET}
+      SUPABASE_URL: ${SUPABASE_URL}
       PORT: 3000
       HOST: 0.0.0.0
     depends_on:
@@ -37,7 +37,7 @@ services:
     command: ["node", "dist/worker.js"]
     environment:
       DATABASE_URL: postgresql://booksapp:booksapp@postgres:5432/booksapp?schema=public
-      SUPABASE_JWT_SECRET: ${SUPABASE_JWT_SECRET}
+      SUPABASE_URL: ${SUPABASE_URL}
     depends_on:
       postgres:
         condition: service_healthy

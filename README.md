@@ -237,3 +237,62 @@ The global setup (`tests/global-setup.ts`) creates the `booksapp_test` database,
 ### What is tested
 
 - `tests/library.test.ts` — `POST /library`: 201 response shape, DB persistence, auto-user creation on first add, 404 for unknown book, 409 on duplicate, 400 for invalid status.
+
+## Transferring database data
+
+Export/import the Postgres data for moving between machines or sharing a pre-seeded dataset.
+
+### Export (source machine)
+
+```bash
+docker compose exec -T postgres pg_dump -U booksapp --data-only booksapp > booksapp_data.sql
+```
+
+The `-T` flag disables pseudo-TTY so plain text output lands in the file (instead of being mangled by terminal control codes). The `--data-only` flag excludes the schema — useful when the target machine will apply migrations separately.
+
+To include the schema in the dump, omit `--data-only`:
+
+```bash
+docker compose exec -T postgres pg_dump -U booksapp --clean --if-exists booksapp > booksapp_full.sql
+```
+
+### Import (target machine)
+
+1. Transfer the dump file to the target machine (USB, `scp`, cloud storage, etc.).
+
+2. On the target machine, clone the repo and start Postgres:
+
+   ```bash
+   git clone <repo-url> books-app-backend
+   cd books-app-backend
+   npm install
+   cp .env.example .env
+   docker compose up -d postgres
+   ```
+
+3. Apply the schema — required when you exported with `--data-only`:
+
+   ```bash
+   npx prisma migrate deploy
+   ```
+
+   Already done? Skip to step 4. If you exported a full dump with `--clean`, skip this step entirely.
+
+4. Restore the data:
+
+   ```bash
+   docker compose exec -T postgres psql -U booksapp -d booksapp < booksapp_data.sql
+   ```
+
+After the import, verify the row counts match:
+
+```bash
+docker compose exec postgres psql -U booksapp -d booksapp -c "
+  SELECT
+    (SELECT COUNT(*) FROM books) AS books,
+    (SELECT COUNT(*) FROM subjects) AS subjects,
+    (SELECT COUNT(*) FROM authors) AS authors;
+"
+```
+
+> **Note for PowerShell users:** Replace the `<` redirect with `Get-Content booksapp_data.sql | docker compose exec -T postgres psql -U booksapp -d booksapp`.

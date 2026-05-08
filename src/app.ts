@@ -76,7 +76,8 @@ export function buildApp(opts?: { testUser?: TestUser }) {
           try {
             await request.jwtVerify();
           } catch (err) {
-            reply.send(err);
+            app.log.error(err, "JWT verification failed");
+            reply.unauthorized("Invalid or expired token");
           }
         },
   );

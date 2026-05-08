@@ -6,7 +6,6 @@ import type {
   User,
   LibraryItem,
   Thread,
-  ThreadReply,
   UserPreferences,
   UserBadge,
   Challenge,
@@ -124,14 +123,6 @@ type ThreadWithRelations = Thread & {
   threadLikes?: { userId: string }[];
 };
 
-type ThreadReplyWithUser = ThreadReply & { user: User };
-
-/** Builds the `bookContext` label shown in thread cards ("Title · Author" or "General") */
-function bookContext(book: Book | null): string {
-  if (!book) return "General";
-  return `${book.title} · ${book.author}`;
-}
-
 export function toThread(t: ThreadWithRelations, currentUserId?: string) {
   return {
     id: t.id,
@@ -151,7 +142,16 @@ export function toThread(t: ThreadWithRelations, currentUserId?: string) {
   };
 }
 
-export function toThreadReply(r: ThreadReplyWithUser, currentUserId?: string) {
+interface ThreadReplyInput {
+  id: string;
+  body: string;
+  createdAt: Date;
+  deletedAt: Date | null;
+  userId: string;
+  user: { name: string; avatarHue: number };
+}
+
+export function toThreadReply(r: ThreadReplyInput, currentUserId?: string) {
   return {
     id: r.id,
     body: r.body,
@@ -162,15 +162,34 @@ export function toThreadReply(r: ThreadReplyWithUser, currentUserId?: string) {
   };
 }
 
-type ThreadDetailWithRelations = Thread & {
-  creator: User;
-  book: Book | null;
-  replies: ThreadReplyWithUser[];
-  threadLikes?: { userId: string }[];
-};
+interface BookContextInput {
+  title: string;
+  author: string;
+  coverUrl: string | null;
+}
+
+/** Builds the `bookContext` label shown in thread cards ("Title · Author" or "General") */
+function bookContext(book: BookContextInput | null): string {
+  if (!book) return "General";
+  return `${book.title} · ${book.author}`;
+}
+
+interface ThreadDetailInput {
+  id: string;
+  title: string;
+  body: string | null;
+  createdAt: Date;
+  likes: number;
+  spoiler: boolean;
+  creatorId: string;
+  creator: { name: string; avatarHue: number };
+  book: BookContextInput | null;
+  replies: ThreadReplyInput[];
+  threadLikes?: Array<{ userId: string }>;
+}
 
 export function toThreadDetail(
-  t: ThreadDetailWithRelations,
+  t: ThreadDetailInput,
   currentUserId?: string,
 ) {
   return {

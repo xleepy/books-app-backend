@@ -70,17 +70,21 @@ export function computeLevelInfo(xpTotal: number): LevelInfo {
 
 // ─── Award XP ─────────────────────────────────────────────────────────────────
 
+type DbClient = Prisma.TransactionClient | typeof db;
+
 /**
  * Award XP to a user, record an XP event, and recompute level/title.
  * Mutates the `users` row in-place; returns the new xp_total and level info.
+ * Accepts an optional transaction client for use within existing transactions.
  */
 export async function awardXp(
   userId: string,
   source: string,
   xp: number,
-  meta?: Prisma.InputJsonValue
+  meta?: Prisma.InputJsonValue,
+  client?: Prisma.TransactionClient,
 ): Promise<LevelInfo & { newXpTotal: number }> {
-  return db.$transaction(async (tx) => {
+  const run = async (tx: DbClient) => {
     await tx.xpEvent.create({ data: { userId, source, xp, meta: meta ?? {} } });
 
     const updated = await tx.user.update({
@@ -99,5 +103,11 @@ export async function awardXp(
     }
 
     return { newXpTotal: updated.xpTotal, ...levelInfo };
-  });
+  };
+
+  if (client) {
+    return run(client);
+  }
+
+  return db.$transaction((tx) => run(tx));
 }

@@ -49,10 +49,40 @@ export async function updatePreferences(
     profileVisibility: string;
   }
 ) {
+  const {
+    readingGoalMinutes,
+    reminderTime,
+    reminderEnabled,
+    preferredGenres,
+    notifyPush,
+    notifyWeeklyDigest,
+    notifyChallenge,
+    profileVisibility,
+  } = body;
+
   const prefs = await db.userPreferences.upsert({
     where: { userId },
-    create: { userId, ...body },
-    update: body,
+    create: {
+      userId,
+      readingGoalMinutes,
+      reminderTime: reminderTime ?? null,
+      reminderEnabled,
+      preferredGenres,
+      notifyPush,
+      notifyWeeklyDigest,
+      notifyChallenge,
+      profileVisibility,
+    },
+    update: {
+      readingGoalMinutes,
+      reminderTime: reminderTime ?? null,
+      reminderEnabled,
+      preferredGenres,
+      notifyPush,
+      notifyWeeklyDigest,
+      notifyChallenge,
+      profileVisibility,
+    },
   });
 
   return toPreferences(prefs);

@@ -46,5 +46,6 @@ export function handleServiceError(reply: FastifyReply, error: unknown) {
   if (error instanceof ForbiddenError) return reply.forbidden(error.message);
   if (error instanceof BadRequestError) return reply.badRequest(error.message);
   if (error instanceof UnauthorizedError) return reply.unauthorized(error.message);
-  throw error;
+  console.error("Unhandled service error:", error);
+  return reply.internalServerError("An unexpected error occurred");
 }

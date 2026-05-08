@@ -1,3 +1,4 @@
+import { Expo } from "expo-server-sdk";
 import { db } from "../lib/db";
 
 export async function registerPushToken(
@@ -5,6 +6,10 @@ export async function registerPushToken(
   token: string,
   platform: string
 ) {
+  if (!Expo.isExpoPushToken(token)) {
+    throw new Error("Invalid Expo push token");
+  }
+
   // Upsert: delete old same-token rows first (handles reinstalls), then create
   await db.pushToken.deleteMany({ where: { token } });
 

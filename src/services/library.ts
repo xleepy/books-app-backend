@@ -3,7 +3,7 @@ import { Prisma, LibraryItemStatus } from "../generated/prisma/client";
 import { bookInclude } from "../lib/includes";
 import { toLibraryBook } from "../lib/mappers";
 import { NotFoundError, ConflictError } from "../lib/errors";
-import { XP_VALUES, computeLevelInfo } from "../lib/xp";
+import { XP_VALUES, awardXp } from "../lib/xp";
 import { checkAndAwardBadges } from "../lib/badges";
 import { sendChallengeCompleteNotification } from "./notifications";
 
@@ -26,45 +26,13 @@ async function incrementUserStats(
   });
 }
 
-async function awardXpAndLevelUp(
-  tx: TxClient,
-  userId: string,
-  source: string,
-  xp: number,
-  meta: Prisma.InputJsonValue,
-) {
-  await tx.xpEvent.create({ data: { userId, source, xp, meta } });
-  const updated = await tx.user.update({
-    where: { id: userId },
-    data: { xpTotal: { increment: xp } },
-    select: { xpTotal: true, level: true, levelTitle: true },
-  });
-  const levelInfo = computeLevelInfo(updated.xpTotal);
-  if (
-    updated.level !== levelInfo.level ||
-    updated.levelTitle !== levelInfo.levelTitle
-  ) {
-    await tx.user.update({
-      where: { id: userId },
-      data: { level: levelInfo.level, levelTitle: levelInfo.levelTitle },
-    });
-  }
-  return updated;
-}
-
 async function maybeAwardFirstBookXp(
   tx: TxClient,
   userId: string,
   previousBooks: number,
 ) {
   if (previousBooks !== 1) return;
-  await tx.xpEvent.create({
-    data: { userId, source: "first_book", xp: XP_VALUES.first_book, meta: {} },
-  });
-  await tx.user.update({
-    where: { id: userId },
-    data: { xpTotal: { increment: XP_VALUES.first_book } },
-  });
+  await awardXp(userId, "first_book", XP_VALUES.first_book, {}, tx);
 }
 
 function toDateOnlyUTC(d: Date): Date {
@@ -132,14 +100,14 @@ async function updateReadingStreak(tx: TxClient, userId: string, today: Date) {
   // Award 50 XP + On Fire badge when crossing the 7-day milestone (once per streak run)
   const crossedSevenDay = newStreak > user.streak && newStreak % 7 === 0;
   if (crossedSevenDay) {
-    await awardXpAndLevelUp(
-      tx,
+    await awardXp(
       userId,
       "streak_milestone",
       XP_VALUES.streak_milestone,
       {
         streakDays: 7,
       },
+      tx,
     );
 
     const badge = await tx.badge.findUnique({ where: { slug: "on-fire" } });
@@ -168,10 +136,10 @@ async function maybeCompleteChallenge(
       where: { userId_challengeId: { userId, challengeId: challenge.id } },
       data: { completedAt: today },
     });
-    await awardXpAndLevelUp(tx, userId, "challenge", XP_VALUES.challenge, {
+    await awardXp(userId, "challenge", XP_VALUES.challenge, {
       challengeId: challenge.id,
       challengeTitle: challenge.title,
-    });
+    }, tx);
     // Fire push outside transaction so DB commit is guaranteed first
     sendChallengeCompleteNotification(userId, challenge.title).catch(() => {});
   }
@@ -260,12 +228,12 @@ async function _onBookFinished(
     where: { userId, status: "finished" },
   });
 
-  await awardXpAndLevelUp(
-    tx,
+  await awardXp(
     userId,
     "book_finished",
     XP_VALUES.book_finished,
     { pageCount },
+    tx,
   );
   await maybeAwardFirstBookXp(tx, userId, previousBooks);
   await updateReadingStreak(tx, userId, today);

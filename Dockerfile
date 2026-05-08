@@ -1,28 +1,34 @@
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 
-COPY package*.json ./
-COPY prisma ./prisma/
-
+COPY package.json package-lock.json ./
 RUN npm ci
 
-COPY tsconfig.json ./
-COPY src ./src/
+COPY tsconfig.json nodemon.json ./
+COPY prisma ./prisma
+COPY src ./src
 
+RUN npm run db:generate
 RUN npm run build
 
-FROM node:20-alpine AS runner
+FROM node:22-alpine AS runner
 
 WORKDIR /app
 
-COPY package*.json ./
-COPY prisma ./prisma/
+RUN addgroup --system --gid 1001 app && adduser --system --uid 1001 app
 
-RUN npm ci --omit=dev && npx prisma generate
-
+COPY --from=builder /app/package.json /app/package-lock.json ./
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
+
+RUN npm ci --omit=dev --ignore-scripts
+
+USER app
 
 EXPOSE 3000
 
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/index.js"]
+CMD ["node", "dist/index.js"]

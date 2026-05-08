@@ -128,8 +128,7 @@ export async function getThread(id: string, userId: string) {
   });
 
   if (!thread) throw new NotFoundError("Thread not found");
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return toThreadDetail(thread as any, userId);
+  return toThreadDetail(thread, userId);
 }
 
 export async function postReply(
