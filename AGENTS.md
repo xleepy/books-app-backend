@@ -67,7 +67,6 @@ npm run dev               # Dev server (requires Postgres)
 npm run typecheck         # TypeScript check
 npm run lint              # ESLint check
 npm run db:migrate        # Create + apply migration + regenerate client
-```
 npm run db:generate       # Regenerate Prisma client only
 npm run db:studio         # Prisma Studio GUI
 npm run test              # Integration tests (requires Postgres)
@@ -115,6 +114,7 @@ src/
 11. **If your change touches logic covered by integration tests, review and run those tests.** Before finishing, inspect the relevant test file(s) in `tests/` to ensure your changes don't break existing assertions or data setup/teardown, and run `npm run test` to confirm everything passes.
 12. **Run `npm run lint` before finishing** — Ensure ESLint passes with no errors or warnings after making changes.
 13. **When in doubt, ask the user.** If you are uncertain about requirements, design decisions, or the best approach to a problem, do not guess. Present your uncertainty clearly, explain the options you see, and ask the user for guidance before proceeding.
+14. **Keep AGENTS.md up-to-date** — If you modify code that changes any convention, stack version, directory structure, architecture, guide reference, feature doc table, or quick command documented in AGENTS.md, update AGENTS.md to reflect the new reality. This file is the source of truth for future agents working on this codebase.
 
 
 ---
