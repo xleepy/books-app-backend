@@ -126,6 +126,8 @@ model User {
   threadLikes          ThreadLike[]
   recommendationCaches RecommendationCache[]
   pushTokens           PushToken[]
+  sentFriendshipRequests     Friendship[] @relation("SentFriendshipRequests")
+  receivedFriendshipRequests Friendship[] @relation("ReceivedFriendshipRequests")
 
   @@map("users")
 }
@@ -361,4 +363,23 @@ model PushToken {
 
   @@index([userId])
   @@map("push_tokens")
+}
+
+// ─── Social ────────────────────────────────────────────────────────────────────
+
+model Friendship {
+  id          String   @id @default(uuid())
+  requesterId String   @map("requester_id")
+  addresseeId String   @map("addressee_id")
+  status      String   @default("pending")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  requester User @relation("SentFriendshipRequests", fields: [requesterId], references: [id], onDelete: Cascade)
+  addressee User @relation("ReceivedFriendshipRequests", fields: [addresseeId], references: [id], onDelete: Cascade)
+
+  @@unique([requesterId, addresseeId])
+  @@index([addresseeId, status])
+  @@index([requesterId, status])
+  @@map("friendships")
 }

@@ -319,6 +319,50 @@ type UserForLeaderboard = {
   avatarHue: number;
 };
 
+// ─── Friendship mappers ────────────────────────────────────────────────────────
+
+type UserForFriend = {
+  id: string;
+  name: string;
+  avatarHue: number;
+  level: number;
+  levelTitle: string;
+};
+
+export function toFriend(
+  friendship: { id: string; createdAt: Date },
+  otherUser: UserForFriend,
+  mutualCount: number,
+) {
+  return {
+    id: friendship.id,
+    userId: otherUser.id,
+    username: otherUser.name,
+    avatarHue: otherUser.avatarHue,
+    level: otherUser.level,
+    levelTitle: otherUser.levelTitle,
+    friendsSince: friendship.createdAt.toISOString(),
+    mutualCount,
+  };
+}
+
+export function toFriendRequest(
+  friendship: { id: string; createdAt: Date },
+  otherUser: UserForFriend,
+  direction: "incoming" | "outgoing",
+) {
+  return {
+    id: friendship.id,
+    userId: otherUser.id,
+    username: otherUser.name,
+    avatarHue: otherUser.avatarHue,
+    level: otherUser.level,
+    levelTitle: otherUser.levelTitle,
+    direction,
+    sentAt: friendship.createdAt.toISOString(),
+  };
+}
+
 export function toLeaderboardEntry(
   u: UserForLeaderboard,
   rank: number,

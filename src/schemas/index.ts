@@ -536,6 +536,99 @@ export const UserBadgeSchema = {
   },
 } as const;
 
+// ─── Friends ──────────────────────────────────────────────────────────────────
+
+export const FriendSchema = {
+  $id: "Friend",
+  type: "object",
+  required: [
+    "id",
+    "userId",
+    "username",
+    "avatarHue",
+    "level",
+    "levelTitle",
+    "friendsSince",
+    "mutualCount",
+  ],
+  properties: {
+    id: { type: "string" },
+    userId: { type: "string" },
+    username: { type: "string" },
+    avatarHue: { type: "integer", minimum: 0, maximum: 360 },
+    level: { type: "integer" },
+    levelTitle: { type: "string" },
+    friendsSince: { type: "string", format: "date-time" },
+    mutualCount: { type: "integer" },
+  },
+} as const;
+
+export const FriendRequestSchema = {
+  $id: "FriendRequest",
+  type: "object",
+  required: [
+    "id",
+    "userId",
+    "username",
+    "avatarHue",
+    "level",
+    "levelTitle",
+    "direction",
+    "sentAt",
+  ],
+  properties: {
+    id: { type: "string" },
+    userId: { type: "string" },
+    username: { type: "string" },
+    avatarHue: { type: "integer", minimum: 0, maximum: 360 },
+    level: { type: "integer" },
+    levelTitle: { type: "string" },
+    direction: { type: "string", enum: ["incoming", "outgoing"] },
+    sentAt: { type: "string", format: "date-time" },
+  },
+} as const;
+
+export const FriendsListSchema = {
+  $id: "FriendsList",
+  type: "object",
+  required: ["data", "total"],
+  properties: {
+    data: { type: "array", items: { $ref: "Friend" } },
+    total: { type: "integer" },
+  },
+} as const;
+
+export const PendingRequestsSchema = {
+  $id: "PendingRequests",
+  type: "object",
+  required: ["data"],
+  properties: {
+    data: {
+      type: "object",
+      required: ["incoming", "outgoing"],
+      properties: {
+        incoming: {
+          type: "array",
+          items: { $ref: "FriendRequest" },
+        },
+        outgoing: {
+          type: "array",
+          items: { $ref: "FriendRequest" },
+        },
+      },
+    },
+  },
+} as const;
+
+export const SendFriendRequestBodySchema = {
+  $id: "SendFriendRequestBody",
+  type: "object",
+  required: ["userId"],
+  properties: {
+    userId: { type: "string" },
+  },
+} as const;
+
 export const AuthTokensSchema = {
   $id: "AuthTokens",
   type: "object",
@@ -603,4 +696,10 @@ export const allSchemas = [
   UserBadgeListSchema,
   LikeResultSchema,
   SubjectListSchema,
+  // Friends
+  FriendSchema,
+  FriendRequestSchema,
+  FriendsListSchema,
+  PendingRequestsSchema,
+  SendFriendRequestBodySchema,
 ];

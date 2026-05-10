@@ -18,6 +18,7 @@ import { threadsRoute } from "./routes/threads";
 import { challengesRoute } from "./routes/challenges";
 import { meRoute } from "./routes/me";
 import { swipesRoute } from "./routes/swipes";
+import { friendsRoute } from "./routes/friends";
 
 const supabaseUrl = process.env.SUPABASE_URL ?? "";
 
@@ -121,6 +122,10 @@ export function buildApp(opts?: { testUser?: TestUser }) {
           name: "swipes",
           description: "Swipe events for feed personalization",
         },
+        {
+          name: "friends",
+          description: "User-to-user friend requests and friendship management",
+        },
       ],
     },
   });
@@ -143,6 +148,7 @@ export function buildApp(opts?: { testUser?: TestUser }) {
   app.register(threadsRoute);
   app.register(challengesRoute);
   app.register(swipesRoute);
+  app.register(friendsRoute);
 
   return app;
 }

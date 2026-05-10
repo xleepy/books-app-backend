@@ -1,0 +1,4082 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Books App API",
+    "description": "Backend API for Books App — books, reviews, discussions, challenges, user library, and swipe-based recommendations.",
+    "version": "1.0.0"
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "def-0": {
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "author",
+          "tags",
+          "description",
+          "rating",
+          "reviewCount"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "author": {
+            "type": "string"
+          },
+          "coverUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "description": {
+            "type": "string"
+          },
+          "rating": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 5
+          },
+          "reviewCount": {
+            "type": "integer"
+          },
+          "pageCount": {
+            "type": "integer",
+            "nullable": true
+          }
+        },
+        "title": "Book"
+      },
+      "def-1": {
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "author",
+          "tags",
+          "description",
+          "rating",
+          "reviewCount",
+          "status",
+          "progressPct"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "author": {
+            "type": "string"
+          },
+          "coverUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "description": {
+            "type": "string"
+          },
+          "rating": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 5
+          },
+          "reviewCount": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "want",
+              "reading",
+              "finished"
+            ]
+          },
+          "progressPct": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "currentPage": {
+            "type": "integer",
+            "nullable": true
+          },
+          "pageCount": {
+            "type": "integer",
+            "nullable": true
+          },
+          "timeLeftMin": {
+            "type": "integer",
+            "nullable": true
+          }
+        },
+        "title": "LibraryBook"
+      },
+      "def-2": {
+        "type": "object",
+        "required": [
+          "finished",
+          "reading",
+          "saved"
+        ],
+        "properties": {
+          "finished": {
+            "type": "integer"
+          },
+          "reading": {
+            "type": "integer"
+          },
+          "saved": {
+            "type": "integer"
+          }
+        },
+        "title": "LibraryStats"
+      },
+      "def-3": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "avatarHue",
+          "level",
+          "levelTitle",
+          "xpTotal",
+          "xpCurrentLevel",
+          "xpToNextLevel",
+          "booksFinished",
+          "streak",
+          "bestStreak",
+          "weekDays",
+          "readingGoal"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "avatarHue": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 360
+          },
+          "level": {
+            "type": "integer"
+          },
+          "levelTitle": {
+            "type": "string"
+          },
+          "xpTotal": {
+            "type": "integer"
+          },
+          "xpCurrentLevel": {
+            "type": "integer"
+          },
+          "xpToNextLevel": {
+            "type": "integer"
+          },
+          "booksFinished": {
+            "type": "integer"
+          },
+          "pagesRead": {
+            "type": "integer"
+          },
+          "hoursRead": {
+            "type": "number"
+          },
+          "streak": {
+            "type": "integer"
+          },
+          "bestStreak": {
+            "type": "integer"
+          },
+          "weekDays": {
+            "type": "array",
+            "items": {
+              "type": "boolean"
+            }
+          },
+          "readingGoal": {
+            "type": "integer"
+          }
+        },
+        "title": "User"
+      },
+      "def-4": {
+        "type": "object",
+        "required": [
+          "readingGoalMinutes",
+          "reminderEnabled",
+          "preferredGenres",
+          "notifyPush",
+          "notifyWeeklyDigest",
+          "notifyChallenge",
+          "profileVisibility"
+        ],
+        "properties": {
+          "readingGoalMinutes": {
+            "type": "integer"
+          },
+          "reminderTime": {
+            "type": "string",
+            "nullable": true
+          },
+          "reminderEnabled": {
+            "type": "boolean"
+          },
+          "preferredGenres": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "notifyPush": {
+            "type": "boolean"
+          },
+          "notifyWeeklyDigest": {
+            "type": "boolean"
+          },
+          "notifyChallenge": {
+            "type": "boolean"
+          },
+          "profileVisibility": {
+            "type": "string",
+            "enum": [
+              "public",
+              "friends",
+              "private"
+            ]
+          }
+        },
+        "title": "Preferences"
+      },
+      "def-5": {
+        "type": "object",
+        "required": [
+          "id",
+          "reviewer",
+          "date",
+          "rating",
+          "text",
+          "avatarHue"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "reviewer": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "rating": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 5
+          },
+          "text": {
+            "type": "string"
+          },
+          "avatarHue": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 360
+          }
+        },
+        "title": "Review"
+      },
+      "def-6": {
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "bookContext",
+          "preview",
+          "replies",
+          "likes",
+          "timeAgo",
+          "spoiler",
+          "creatorName",
+          "creatorAvatarHue"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "bookContext": {
+            "type": "string"
+          },
+          "preview": {
+            "type": "string"
+          },
+          "coverUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "replies": {
+            "type": "integer"
+          },
+          "likes": {
+            "type": "integer"
+          },
+          "timeAgo": {
+            "type": "string"
+          },
+          "spoiler": {
+            "type": "boolean"
+          },
+          "liked": {
+            "type": "boolean"
+          },
+          "creatorName": {
+            "type": "string"
+          },
+          "creatorAvatarHue": {
+            "type": "integer"
+          }
+        },
+        "title": "Thread"
+      },
+      "def-7": {
+        "type": "object",
+        "required": [
+          "id",
+          "body",
+          "timeAgo",
+          "creatorName",
+          "creatorAvatarHue",
+          "isOwner"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "timeAgo": {
+            "type": "string"
+          },
+          "creatorName": {
+            "type": "string"
+          },
+          "creatorAvatarHue": {
+            "type": "integer"
+          },
+          "isOwner": {
+            "type": "boolean"
+          }
+        },
+        "title": "ThreadReply"
+      },
+      "def-8": {
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "body",
+          "bookContext",
+          "likes",
+          "timeAgo",
+          "spoiler",
+          "creatorName",
+          "creatorAvatarHue",
+          "isOwner",
+          "replies"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "bookContext": {
+            "type": "string"
+          },
+          "coverUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "likes": {
+            "type": "integer"
+          },
+          "timeAgo": {
+            "type": "string"
+          },
+          "spoiler": {
+            "type": "boolean"
+          },
+          "liked": {
+            "type": "boolean"
+          },
+          "creatorName": {
+            "type": "string"
+          },
+          "creatorAvatarHue": {
+            "type": "integer"
+          },
+          "isOwner": {
+            "type": "boolean"
+          },
+          "replies": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/def-7"
+            }
+          }
+        },
+        "title": "ThreadDetail"
+      },
+      "def-9": {
+        "type": "object",
+        "required": [
+          "id",
+          "slug",
+          "title",
+          "variant",
+          "metric",
+          "target",
+          "participantCount",
+          "isJoined",
+          "isCreator"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "subtitle": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "goal": {
+            "type": "string",
+            "nullable": true
+          },
+          "variant": {
+            "type": "string"
+          },
+          "metric": {
+            "type": "string"
+          },
+          "target": {
+            "type": "integer"
+          },
+          "creatorId": {
+            "type": "string",
+            "nullable": true
+          },
+          "creatorName": {
+            "type": "string",
+            "nullable": true
+          },
+          "participantCount": {
+            "type": "integer"
+          },
+          "badgeId": {
+            "type": "string",
+            "nullable": true
+          },
+          "badgeText": {
+            "type": "string",
+            "nullable": true
+          },
+          "activeFrom": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "activeTo": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "current": {
+            "type": "integer"
+          },
+          "isJoined": {
+            "type": "boolean"
+          },
+          "isCreator": {
+            "type": "boolean"
+          }
+        },
+        "title": "Challenge"
+      },
+      "def-10": {
+        "type": "object",
+        "required": [
+          "title",
+          "variant",
+          "metric",
+          "target",
+          "activeFrom",
+          "activeTo"
+        ],
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "variant": {
+            "type": "string",
+            "enum": [
+              "monthly",
+              "yearly",
+              "weekly",
+              "custom"
+            ]
+          },
+          "metric": {
+            "type": "string",
+            "enum": [
+              "books",
+              "pages",
+              "hours",
+              "streak"
+            ]
+          },
+          "target": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9999
+          },
+          "activeFrom": {
+            "type": "string",
+            "format": "date"
+          },
+          "activeTo": {
+            "type": "string",
+            "format": "date"
+          },
+          "badgeId": {
+            "type": "string"
+          }
+        },
+        "title": "CreateChallengeBody"
+      },
+      "def-11": {
+        "type": "object",
+        "required": [
+          "id",
+          "rank",
+          "name",
+          "level",
+          "levelTitle",
+          "books",
+          "xp",
+          "avatarHue"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "rank": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "level": {
+            "type": "integer"
+          },
+          "levelTitle": {
+            "type": "string"
+          },
+          "books": {
+            "type": "integer"
+          },
+          "xp": {
+            "type": "integer"
+          },
+          "isYou": {
+            "type": "boolean"
+          },
+          "avatarHue": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 360
+          }
+        },
+        "title": "LeaderboardEntry"
+      },
+      "def-12": {
+        "type": "object",
+        "required": [
+          "slug",
+          "name",
+          "awardedAt"
+        ],
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "iconUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "awardedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "title": "UserBadge"
+      },
+      "def-13": {
+        "type": "object",
+        "required": [
+          "total",
+          "page",
+          "limit"
+        ],
+        "properties": {
+          "total": {
+            "type": "integer"
+          },
+          "page": {
+            "type": "integer"
+          },
+          "limit": {
+            "type": "integer"
+          }
+        },
+        "title": "Pagination"
+      },
+      "def-14": {
+        "type": "object",
+        "required": [
+          "error",
+          "message"
+        ],
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "title": "ApiError"
+      },
+      "def-15": {
+        "type": "object",
+        "required": [
+          "accessToken"
+        ],
+        "properties": {
+          "accessToken": {
+            "type": "string"
+          }
+        },
+        "title": "AuthTokens"
+      },
+      "def-16": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        },
+        "title": "IdParam"
+      },
+      "def-17": {
+        "type": "object",
+        "required": [
+          "bookId"
+        ],
+        "properties": {
+          "bookId": {
+            "type": "string"
+          }
+        },
+        "title": "BookIdParam"
+      },
+      "def-18": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20
+          }
+        },
+        "title": "LimitQuery"
+      },
+      "def-19": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 1
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 20
+          }
+        },
+        "title": "PaginationQuery"
+      },
+      "def-20": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "description": "Opaque pagination cursor"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 20
+          }
+        },
+        "title": "CursorQuery"
+      },
+      "def-21": {
+        "type": "object",
+        "properties": {
+          "filter": {
+            "type": "string",
+            "enum": [
+              "all",
+              "popular",
+              "recent",
+              "mine"
+            ],
+            "default": "recent"
+          },
+          "search": {
+            "type": "string"
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 1
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 20
+          }
+        },
+        "title": "ThreadFilterQuery"
+      },
+      "def-22": {
+        "type": "object",
+        "properties": {
+          "filter": {
+            "type": "string",
+            "enum": [
+              "active",
+              "monthly",
+              "yearly",
+              "weekly",
+              "custom"
+            ],
+            "default": "active"
+          }
+        },
+        "title": "ChallengeFilterQuery"
+      },
+      "def-23": {
+        "type": "object",
+        "required": [
+          "data",
+          "pagination"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/def-0"
+            }
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/def-13"
+          }
+        },
+        "title": "PaginatedBooks"
+      },
+      "def-24": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/def-0"
+            }
+          },
+          "nextCursor": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "title": "BookList"
+      },
+      "def-25": {
+        "type": "object",
+        "required": [
+          "data",
+          "pagination"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/def-5"
+            }
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/def-13"
+          }
+        },
+        "title": "PaginatedReviews"
+      },
+      "def-26": {
+        "type": "object",
+        "required": [
+          "data",
+          "pagination"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/def-6"
+            }
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/def-13"
+          }
+        },
+        "title": "PaginatedThreads"
+      },
+      "def-27": {
+        "type": "object",
+        "required": [
+          "data",
+          "pagination"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/def-1"
+            }
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/def-13"
+          }
+        },
+        "title": "PaginatedLibraryBooks"
+      },
+      "def-28": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/def-9"
+          }
+        },
+        "title": "ChallengeDetail"
+      },
+      "def-29": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/def-9"
+            }
+          }
+        },
+        "title": "ChallengeList"
+      },
+      "def-30": {
+        "type": "object",
+        "required": [
+          "challengeId",
+          "current",
+          "target",
+          "completed"
+        ],
+        "properties": {
+          "challengeId": {
+            "type": "string"
+          },
+          "current": {
+            "type": "integer"
+          },
+          "target": {
+            "type": "integer"
+          },
+          "completed": {
+            "type": "boolean"
+          },
+          "completedAt": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "title": "ChallengeProgress"
+      },
+      "def-31": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/def-11"
+            }
+          }
+        },
+        "title": "LeaderboardList"
+      },
+      "def-32": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/def-12"
+            }
+          }
+        },
+        "title": "UserBadgeList"
+      },
+      "def-33": {
+        "type": "object",
+        "required": [
+          "liked",
+          "likes"
+        ],
+        "properties": {
+          "liked": {
+            "type": "boolean"
+          },
+          "likes": {
+            "type": "integer"
+          }
+        },
+        "title": "LikeResult"
+      },
+      "def-34": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "name",
+                "slug"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "slug": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "title": "SubjectList"
+      },
+      "def-35": {
+        "type": "object",
+        "required": [
+          "id",
+          "userId",
+          "username",
+          "avatarHue",
+          "level",
+          "levelTitle",
+          "friendsSince",
+          "mutualCount"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          },
+          "avatarHue": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 360
+          },
+          "level": {
+            "type": "integer"
+          },
+          "levelTitle": {
+            "type": "string"
+          },
+          "friendsSince": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "mutualCount": {
+            "type": "integer"
+          }
+        },
+        "title": "Friend"
+      },
+      "def-36": {
+        "type": "object",
+        "required": [
+          "id",
+          "userId",
+          "username",
+          "avatarHue",
+          "level",
+          "levelTitle",
+          "direction",
+          "sentAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          },
+          "avatarHue": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 360
+          },
+          "level": {
+            "type": "integer"
+          },
+          "levelTitle": {
+            "type": "string"
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "incoming",
+              "outgoing"
+            ]
+          },
+          "sentAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "title": "FriendRequest"
+      },
+      "def-37": {
+        "type": "object",
+        "required": [
+          "data",
+          "total"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/def-35"
+            }
+          },
+          "total": {
+            "type": "integer"
+          }
+        },
+        "title": "FriendsList"
+      },
+      "def-38": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "required": [
+              "incoming",
+              "outgoing"
+            ],
+            "properties": {
+              "incoming": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/def-36"
+                }
+              },
+              "outgoing": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/def-36"
+                }
+              }
+            }
+          }
+        },
+        "title": "PendingRequests"
+      },
+      "def-39": {
+        "type": "object",
+        "required": [
+          "userId"
+        ],
+        "properties": {
+          "userId": {
+            "type": "string"
+          }
+        },
+        "title": "SendFriendRequestBody"
+      }
+    }
+  },
+  "paths": {
+    "/healthz": {
+      "get": {
+        "summary": "Health check",
+        "tags": [
+          "health"
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "status"
+                  ],
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "operationId": "postAuthLogout",
+        "summary": "Log out (client must discard tokens; refresh token revocation handled client-side via Supabase)",
+        "tags": [
+          "auth"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/books/feed": {
+      "get": {
+        "operationId": "getBooksFeed",
+        "summary": "Swipe-deck feed (cursor-paginated, personalized by liked-book subjects for authed users)",
+        "tags": [
+          "books"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "description": "Opaque pagination cursor"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 20
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-24"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/books": {
+      "get": {
+        "operationId": "getBooks",
+        "summary": "List books (paginated, searchable, filterable by tag)",
+        "tags": [
+          "books"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            },
+            "in": "query",
+            "name": "page",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "description": "Full-text search on title / author"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "tag",
+            "required": false,
+            "description": "Filter by subject slug"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-23"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/books/{id}": {
+      "get": {
+        "operationId": "getBooksById",
+        "summary": "Get a single book by ID",
+        "tags": [
+          "books"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-0"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/books/{id}/recommendations": {
+      "get": {
+        "operationId": "getBooksByIdRecommendations",
+        "summary": "Get recommended books similar to a given book (subject overlap)",
+        "tags": [
+          "books"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-24"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/subjects": {
+      "get": {
+        "operationId": "getSubjects",
+        "summary": "List all available book subjects (genres)",
+        "tags": [
+          "books"
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-34"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/books/{id}/reviews": {
+      "get": {
+        "operationId": "getBooksByIdReviews",
+        "summary": "List reviews for a book",
+        "tags": [
+          "reviews"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            },
+            "in": "query",
+            "name": "page",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-25"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "postBooksByIdReviews",
+        "summary": "Submit a review for a book",
+        "tags": [
+          "reviews"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "rating",
+                  "text"
+                ],
+                "properties": {
+                  "rating": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 5
+                  },
+                  "text": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 5000
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-5"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Already reviewed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/library/stats": {
+      "get": {
+        "operationId": "getLibraryStats",
+        "summary": "Counts of the authenticated user's books by reading status",
+        "tags": [
+          "library"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-2"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/library": {
+      "get": {
+        "operationId": "getLibrary",
+        "summary": "Get the authenticated user's saved books",
+        "tags": [
+          "library"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            },
+            "in": "query",
+            "name": "page",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "want",
+                "reading",
+                "finished"
+              ]
+            },
+            "in": "query",
+            "name": "status",
+            "required": false
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-27"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "postLibrary",
+        "summary": "Add a book to the authenticated user's library",
+        "tags": [
+          "library"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "bookId",
+                  "status"
+                ],
+                "properties": {
+                  "bookId": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "want",
+                      "reading",
+                      "finished"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-1"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Book not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Book already in library",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/library/{bookId}": {
+      "patch": {
+        "operationId": "patchLibraryByBookId",
+        "summary": "Update reading status, progress, or current book flag",
+        "tags": [
+          "library"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "want",
+                      "reading",
+                      "finished"
+                    ]
+                  },
+                  "progressPct": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 100
+                  },
+                  "currentPage": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "timeLeftMin": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "nullable": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "bookId",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-1"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteLibraryByBookId",
+        "summary": "Remove a book from the authenticated user's library",
+        "tags": [
+          "library"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "bookId",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Removed successfully"
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me": {
+      "get": {
+        "operationId": "getMe",
+        "summary": "Get authenticated user's profile, reading stats, and preferences",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-3"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "patchMe",
+        "summary": "Update profile fields",
+        "tags": [
+          "me"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "avatarHue": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 360
+                  },
+                  "readingGoal": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-3"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/preferences": {
+      "get": {
+        "operationId": "getMePreferences",
+        "summary": "Get notification and reading preferences",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-4"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "putMePreferences",
+        "summary": "Replace preferences (full update)",
+        "tags": [
+          "me"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/def-4"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-4"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/password": {
+      "post": {
+        "operationId": "postMePassword",
+        "summary": "Change password (email/password users only) — delegates to Supabase client-side",
+        "tags": [
+          "me"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "currentPassword",
+                  "newPassword"
+                ],
+                "properties": {
+                  "currentPassword": {
+                    "type": "string"
+                  },
+                  "newPassword": {
+                    "type": "string",
+                    "minLength": 8
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/badges": {
+      "get": {
+        "operationId": "getMeBadges",
+        "summary": "Get authenticated user's earned badges",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-32"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/current-book": {
+      "get": {
+        "operationId": "getMeCurrentBook",
+        "summary": "Get the user's current reading book (the one marked isCurrent)",
+        "tags": [
+          "me"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-1"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "No current book"
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/push-token": {
+      "post": {
+        "operationId": "postMePushToken",
+        "summary": "Register a push notification token for this device",
+        "tags": [
+          "me"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "token",
+                  "platform"
+                ],
+                "properties": {
+                  "token": {
+                    "type": "string"
+                  },
+                  "platform": {
+                    "type": "string",
+                    "enum": [
+                      "ios",
+                      "android"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "token",
+                    "platform"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "token": {
+                      "type": "string"
+                    },
+                    "platform": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteMePushToken",
+        "summary": "Unregister a push notification token",
+        "tags": [
+          "me"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "token"
+                ],
+                "properties": {
+                  "token": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "deleted"
+                  ],
+                  "properties": {
+                    "deleted": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/threads": {
+      "get": {
+        "operationId": "listThreads",
+        "summary": "List discussion threads",
+        "tags": [
+          "discussions"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "all",
+                "popular",
+                "recent",
+                "mine"
+              ],
+              "default": "recent"
+            },
+            "in": "query",
+            "name": "filter",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "query",
+            "name": "search",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            },
+            "in": "query",
+            "name": "page",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 20
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-26"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createThread",
+        "summary": "Create a new discussion thread",
+        "tags": [
+          "discussions"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "title",
+                  "body"
+                ],
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "body": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 10000
+                  },
+                  "bookId": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "spoiler": {
+                    "type": "boolean",
+                    "default": false
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-6"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Book not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/threads/{id}": {
+      "get": {
+        "operationId": "getThread",
+        "summary": "Get a thread with its replies",
+        "tags": [
+          "discussions"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-8"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateThread",
+        "summary": "Update a thread (only the creator may do this)",
+        "tags": [
+          "discussions"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "title",
+                  "body"
+                ],
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "body": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 10000
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-6"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not the thread owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteThread",
+        "summary": "Soft-delete a thread (only the creator may do this)",
+        "tags": [
+          "discussions"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted successfully"
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not the thread owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/threads/{id}/replies": {
+      "post": {
+        "operationId": "postReply",
+        "summary": "Post a reply to a thread",
+        "tags": [
+          "discussions"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "body"
+                ],
+                "properties": {
+                  "body": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 5000
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-7"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/threads/{id}/like": {
+      "post": {
+        "operationId": "toggleLike",
+        "summary": "Toggle like on a thread",
+        "tags": [
+          "discussions"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-33"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/threads/{id}/replies/{replyId}": {
+      "delete": {
+        "operationId": "deleteReply",
+        "summary": "Soft-delete a reply (only the author may do this)",
+        "tags": [
+          "discussions"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "replyId",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted successfully"
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not the reply owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/leaderboard": {
+      "get": {
+        "operationId": "getGlobalLeaderboard",
+        "summary": "Global leaderboard ranked by XP",
+        "tags": [
+          "challenges"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-31"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/challenges": {
+      "get": {
+        "operationId": "listChallenges",
+        "summary": "List active reading challenges with user progress",
+        "tags": [
+          "challenges"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "active",
+                "monthly",
+                "yearly",
+                "weekly",
+                "custom"
+              ],
+              "default": "active"
+            },
+            "in": "query",
+            "name": "filter",
+            "required": false
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-29"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createChallenge",
+        "summary": "Create a new reading challenge",
+        "tags": [
+          "challenges"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/def-10"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-28"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/challenges/{id}": {
+      "get": {
+        "operationId": "getChallenge",
+        "summary": "Get challenge details by ID",
+        "tags": [
+          "challenges"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-28"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateChallenge",
+        "summary": "Update a challenge (creator only, cosmetic fields)",
+        "tags": [
+          "challenges"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
+                  "description": {
+                    "type": "string",
+                    "maxLength": 500
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-28"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteChallenge",
+        "summary": "Delete a challenge (creator only)",
+        "tags": [
+          "challenges"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Default Response"
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/challenges/{id}/join": {
+      "post": {
+        "operationId": "joinChallenge",
+        "summary": "Join a challenge",
+        "tags": [
+          "challenges"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-30"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/challenges/{id}/leave": {
+      "post": {
+        "operationId": "leaveChallenge",
+        "summary": "Leave a challenge",
+        "tags": [
+          "challenges"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Default Response"
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/challenges/{id}/progress": {
+      "get": {
+        "operationId": "getChallengeProgress",
+        "summary": "Get authenticated user's progress for a specific challenge",
+        "tags": [
+          "challenges"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-30"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/challenges/{id}/leaderboard": {
+      "get": {
+        "operationId": "getChallengeLeaderboard",
+        "summary": "Get the leaderboard for a specific challenge (ranked by progress)",
+        "tags": [
+          "challenges"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-31"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/swipes": {
+      "post": {
+        "operationId": "postSwipes",
+        "summary": "Record a swipe on a book (left = pass, right = like)",
+        "tags": [
+          "swipes"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "bookId",
+                  "direction"
+                ],
+                "properties": {
+                  "bookId": {
+                    "type": "string"
+                  },
+                  "direction": {
+                    "type": "string",
+                    "enum": [
+                      "left",
+                      "right"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Default Response"
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/friends": {
+      "get": {
+        "operationId": "getFriends",
+        "summary": "Get accepted friends list",
+        "tags": [
+          "friends"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-37"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/friends/pending": {
+      "get": {
+        "operationId": "getPendingRequests",
+        "summary": "Get incoming and outgoing pending requests",
+        "tags": [
+          "friends"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-38"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/friends/request": {
+      "post": {
+        "operationId": "sendFriendRequest",
+        "summary": "Send a friend request",
+        "tags": [
+          "friends"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/def-39"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-36"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/friends/accept/{requestId}": {
+      "post": {
+        "operationId": "acceptFriendRequest",
+        "summary": "Accept an incoming friend request",
+        "tags": [
+          "friends"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "requestId",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-35"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/friends/reject/{requestId}": {
+      "post": {
+        "operationId": "rejectFriendRequest",
+        "summary": "Reject an incoming friend request",
+        "tags": [
+          "friends"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "requestId",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Default Response"
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/friends/{friendshipId}": {
+      "delete": {
+        "operationId": "removeFriend",
+        "summary": "Remove a friend or cancel a pending request",
+        "tags": [
+          "friends"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "in": "path",
+            "name": "friendshipId",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Default Response"
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/def-14"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3000",
+      "description": "Local development"
+    }
+  ],
+  "tags": [
+    {
+      "name": "health",
+      "description": "Service health"
+    },
+    {
+      "name": "auth",
+      "description": "Authentication"
+    },
+    {
+      "name": "books",
+      "description": "Book catalogue and recommendations"
+    },
+    {
+      "name": "reviews",
+      "description": "Book reviews"
+    },
+    {
+      "name": "library",
+      "description": "User's personal book library"
+    },
+    {
+      "name": "me",
+      "description": "Authenticated user profile and preferences"
+    },
+    {
+      "name": "discussions",
+      "description": "Discussion threads (threads)"
+    },
+    {
+      "name": "challenges",
+      "description": "Reading challenges and leaderboards"
+    },
+    {
+      "name": "swipes",
+      "description": "Swipe events for feed personalization"
+    },
+    {
+      "name": "friends",
+      "description": "User-to-user friend requests and friendship management"
+    }
+  ]
+}
